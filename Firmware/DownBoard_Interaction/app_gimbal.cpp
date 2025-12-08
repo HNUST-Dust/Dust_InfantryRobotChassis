@@ -26,8 +26,8 @@ void Gimbal::Init()
     yaw_angle_pid_.Init(
         100.0f,
         5.0f,
-        9.0f,
-        44.0f,
+        15.0f,
+        0.0f,
         0.0f,
         44.0f,
         0.001f,
@@ -40,9 +40,9 @@ void Gimbal::Init()
     );
     //pitch轴角度环PID初始化
     pitch_angle_pid_.Init(
-        350.0f,
-        160.0f,
-        11.0f,
+        350.0f,//350
+        20.0f,//160
+        8.0f,
         44.0f,
         0.0f,
         44.0f,
@@ -58,7 +58,7 @@ void Gimbal::Init()
     yaw_omega_pid_.Init(
         0.06f,
         0.008f,
-        0.000108f,
+        0.00011f,
         0.1f,
         3.0f,
         9.9f,
@@ -103,7 +103,7 @@ void Gimbal::Init()
     motor_pitch_.SetKp(0);//26
 
     motor_yaw_.SetKd(0.0f); // MIT模式kd
-    motor_pitch_.SetKd(0.06f);//0.06
+    motor_pitch_.SetKd(0.0f);//0.06
 
     motor_yaw_.SetControlAngle(0);
     motor_pitch_.SetControlAngle(0);
@@ -202,7 +202,8 @@ void Gimbal::Output()
 
     // motor_yaw_.SetControlOmega(target_yaw_omega_ + yaw_omega_feedforword_);
     motor_yaw_.SetControlTorque(yaw_omega_pid_.GetOut());
-    motor_pitch_.SetControlOmega(target_pitch_omega_);
+    // motor_pitch_.SetControlOmega(target_pitch_omega_);
+    motor_pitch_.SetControlTorque(pitch_omega_pid_.GetOut());
     motor_yaw_.Output();
     motor_pitch_.Output();
 
