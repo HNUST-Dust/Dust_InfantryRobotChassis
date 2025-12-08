@@ -88,8 +88,8 @@ void Robot::Task()
         }
 
         /********************** 云台 ***********************/   
-        // virtual_yaw_angle_ += (mcu_comm_data_local.yaw - 127.0f)*YAW_SENSITIVITY;
-        // virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX/128.0f);
+        virtual_yaw_angle_ += (mcu_comm_data_local.yaw - 127.0f)*YAW_SENSITIVITY;
+        virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX/128.0f);
         if (virtual_pitch_angle_ >= PITCH_RANGE_MAX){
             virtual_pitch_angle_ = PITCH_RANGE_MAX;
         }else if(virtual_pitch_angle_ <= -PITCH_RANGE_MAX){
@@ -135,12 +135,12 @@ void Robot::Task()
         memcpy(&mcu_comm_.mcu_autoaim_data_.pitch_f,mcu_comm_.mcu_autoaim_data_.pitch,sizeof(float));
         if((fabs(mcu_comm_.mcu_autoaim_data_.pitch_f) > 0.00f) && (fabs(mcu_comm_.mcu_autoaim_data_.pitch_f) <0.3f)){
             // virtual_pitch_angle_ -= mcu_comm_.mcu_autoaim_data_.pitch_f;
-            virtual_pitch_angle_ = mcu_comm_.mcu_autoaim_data_.pitch_f;
+            // virtual_pitch_angle_ = mcu_comm_.mcu_autoaim_data_.pitch_f;
         }
         // virtual_pitch_angle_ = slew_limit(virtual_pitch_angle_, gimbal_.GetPitchNowAngleNoncumulative(), 0.001f, 125.0f);
         
         memcpy(&mcu_comm_.mcu_autoaim_data_.yaw_f,mcu_comm_.mcu_autoaim_data_.yaw,sizeof(float));
-        virtual_yaw_angle_ =  gimbal_.GetYawNowAngleNoncumulative() - mcu_comm_.mcu_autoaim_data_.yaw_f;
+        // virtual_yaw_angle_ =  gimbal_.GetYawNowAngleNoncumulative() - mcu_comm_.mcu_autoaim_data_.yaw_f;
 
         // 回传云台电机角度数据
         mcu_comm_.mcu_send_data_.armor = 0x00;

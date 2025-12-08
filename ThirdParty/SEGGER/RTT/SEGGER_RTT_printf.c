@@ -3,13 +3,13 @@
 *                        The Embedded Experts                        *
 **********************************************************************
 *                                                                    *
-*            (c) 1995 - 2024 SEGGER Microcontroller GmbH             *
+*            (c) 1995 - 2021 SEGGER Microcontroller GmbH             *
 *                                                                    *
 *       www.segger.com     Support: support@segger.com               *
 *                                                                    *
 **********************************************************************
 *                                                                    *
-*       SEGGER SystemView * Real-time application analysis           *
+*       SEGGER RTT * Real Time Transfer for embedded targets         *
 *                                                                    *
 **********************************************************************
 *                                                                    *
@@ -17,7 +17,7 @@
 *                                                                    *
 * SEGGER strongly recommends to not make any changes                 *
 * to or modify the source code of this software in order to stay     *
-* compatible with the SystemView and RTT protocol, and J-Link.       *
+* compatible with the RTT protocol and J-Link.                       *
 *                                                                    *
 * Redistribution and use in source and binary forms, with or         *
 * without modification, are permitted provided that the following    *
@@ -42,9 +42,10 @@
 *                                                                    *
 **********************************************************************
 *                                                                    *
-*       SystemView version: 3.58                                    *
+*       RTT version: 7.58c                                           *
 *                                                                    *
 **********************************************************************
+
 ---------------------------END-OF-HEADER------------------------------
 File    : SEGGER_RTT_printf.c
 Purpose : Replacement for printf to write formatted data via RTT
@@ -423,9 +424,6 @@ int SEGGER_RTT_vprintf(unsigned BufferIndex, const char * sFormat, va_list * pPa
       case 's':
         {
           const char * s = va_arg(*pParamList, const char *);
-          if (s == NULL) {
-            s = "(NULL)";  // Print (NULL) instead of crashing or breaking, as it is more informative to the user.
-          }
           do {
             c = *s;
             s++;
