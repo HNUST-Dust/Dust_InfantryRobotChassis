@@ -67,8 +67,7 @@ include_directories(
         ThirdParty/CMSIS/Device/ST/STM32H7xx/Include 
         ThirdParty/CMSIS/Include 
         ThirdParty/SEGGER/Config
-        ThirdParty/SEGGER/Sample/FreeRTOSV10
-        ThirdParty/SEGGER/SEGGER
+        ThirdParty/SEGGER/RTT
 )
 
 include_directories(
