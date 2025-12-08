@@ -12,6 +12,7 @@
 #define MODULES_COMM_DVC_MCU_COMM_H
 #include "bsp_can.h"
 #include "supercap.h"
+#include <cstdint>
 
 
  
@@ -35,20 +36,30 @@ struct McuCommData
 
 struct McuSendData
 {
-    uint8_t start_of_frame = 0xAB;
-    uint8_t armor;
-    float yaw;   // 4字节浮点数
-    float pitch; // 4字节浮点数
+    uint8_t SOF1 = 0x0A;
+    float yaw_angle;   // 4字节浮点数
+    uint8_t SOF2 = 0x0B;
+    float yaw_omega;  // 4字节浮点数
+    uint8_t SOF3 = 0x0C;
+    float pitch_angle; // 4字节浮点数
+    uint8_t SOF4 = 0x0D;
+    float pitch_omega; // 4字节浮点数
 };
 
 struct McuAutoaimData
 {
-    uint8_t start_of_yaw_frame;
-    uint8_t start_of_pitch_frame;
-    uint8_t yaw[4];
-    float yaw_f;
-    uint8_t pitch[4];
-    float pitch_f;
+    uint8_t SOF1 = 0xFA;
+    float yaw_angle;
+    uint8_t SOF2 = 0xFB;
+    float yaw_omega;
+    uint8_t SOF3 = 0xFC;
+    float yaw_torque;
+    uint8_t SOF4 = 0xFD;
+    float pitch_angle;
+    uint8_t SOF5 = 0xFE;
+    float pitch_omega;
+    uint8_t SOF6 = 0xFF;
+    float pitch_torque;
 };
 
 struct McuImuData
@@ -75,16 +86,32 @@ public:
             CHASSIS_SPIN_DISABLE,
             0,
     };
-    McuSendData mcu_send_data_;
+    McuSendData mcu_send_data_ = {
+            0x0A,
+            0.0f,
+            0x0B,
+            0.0f,
+            0x0C,
+            0.0f,
+            0x0D,
+            0.0f,
+    };
 
     McuAutoaimData mcu_autoaim_data_ = {
-            0xAC,
-            0xAD,
-            {0x00,0x00,0x00,0x00},
-            0,
-            {0x00,0x00,0x00,0x00},
-            0,
+            0xFA,
+            0.0f,
+            0xFB,
+            0.0f,
+            0xFC,
+            0.0f,
+            0xFD,
+            0.0f,
+            0xFE,
+            0.0f,
+            0xFF,
+            0.0f,
     };
+
     McuImuData mcu_imu_data_ = {
             0xAE,
             0xAF,
