@@ -42,8 +42,8 @@ void Gimbal::Init()
     pitch_angle_pid_.Init(
         350.0f,//350
         20.0f,//160
-        8.0f,
-        44.0f,
+        20.0f,
+        0.0f,
         0.0f,
         44.0f,
         0.001f,
@@ -52,7 +52,7 @@ void Gimbal::Init()
         0.0f,
         0.0f,
         PID_D_First_DISABLE,
-        0.01f  
+        0.02f  
     );
     //yaw轴速度环PID初始化
     yaw_omega_pid_.Init(
@@ -120,7 +120,7 @@ void Gimbal::Init()
 
     static const osThreadAttr_t kGimbalTaskAttr = {
         .name = "gimbal_task",
-        .stack_size = 512,
+        .stack_size = 768,
         .priority = (osPriority_t) osPriorityNormal
     };
     osThreadNew(Gimbal::TaskEntry, this, &kGimbalTaskAttr);
