@@ -15,6 +15,7 @@
 #include "interpolation.hpp"
 #include "alg_math.h"
 #include "low_pass_filter.hpp"
+#include "bsp_dwt.h"
 
 void Gimbal::Init()
 {
@@ -246,13 +247,23 @@ void Gimbal::Task()
 
     for (;;)
     {
+        uint64_t start_dwt_time = dwt_get_timeline_us();
+
         if(first_run_flag == 0){ // 第一次运行到这里，pre_pitch_angle未初始化
             first_run_flag = 1;
             pre_pitch_angle_ = target_pitch_angle_;
         }
         SelfResolution();
         Output();
-        osDelay(pdMS_TO_TICKS(1)); // 1khz电机控制频率
+       
         pre_pitch_angle_ = target_pitch_angle_;
+
+        uint64_t final_dwt_time = dwt_get_timeline_us();
+        uint64_t delta_dwt_time = final_dwt_time - start_dwt_time;
+
+        // debug_tools_.VofaSendFloat((float)delta_dwt_time);
+        // debug_tools_.VofaSendTail();
+        
+        osDelay(pdMS_TO_TICKS(1)); // 1khz电机控制频率
     }
 }

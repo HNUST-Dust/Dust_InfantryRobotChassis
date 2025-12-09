@@ -20,6 +20,7 @@
 
 // bsp
 #include "bsp_dwt.h"
+#include <cstdint>
 
 void Robot::Init()
 {
@@ -60,7 +61,7 @@ void Robot::Init()
 
     static const osThreadAttr_t kRobotTaskAttr = {
         .name = "robot_task",
-        .stack_size = 768,
+        .stack_size = 1024,
         .priority = (osPriority_t) osPriorityNormal
     };
     osThreadNew(Robot::TaskEntry, this, &kRobotTaskAttr);
@@ -79,9 +80,12 @@ void Robot::Task()
     uint8_t first_flag = 0;
     for (;;)
     {
-        __disable_irq();
+        uint64_t start_dwt_time = dwt_get_timeline_us();
+
+        // 使用FreeRTOS临界区API替代原始中断控制
+        taskENTER_CRITICAL();
         mcu_comm_data_local = *const_cast<const McuCommData*>(&(mcu_comm_.mcu_comm_data_));
-        __enable_irq();
+        taskEXIT_CRITICAL();
         if(first_flag == 0){
             first_flag = 1;
             mcu_comm_data_local_pre = mcu_comm_data_local;
@@ -159,7 +163,10 @@ void Robot::Task()
         
 
         /********************** 调试信息 ***********************/   
-        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
+        uint64_t final_dwt_time = dwt_get_timeline_us();
+        uint64_t delta_dwt_time = final_dwt_time - start_dwt_time;
+
+        // debug_tools_.VofaSendFloat((float)delta_dwt_time); 
         // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(virtual_pitch_angle_);
@@ -176,10 +183,12 @@ void Robot::Task()
         // debug_tools_.VofaSendFloat(virtual_pitch_angle_);
         // debug_tools_.VofaSendFloat(yaw_err);
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_autoaim_data_.pitch_f);
+
         // 调试帧尾部
         // debug_tools_.VofaSendTail();
 
         mcu_comm_data_local_pre = mcu_comm_data_local;
+
 
         osDelay(pdMS_TO_TICKS(1));// 1khz
     }

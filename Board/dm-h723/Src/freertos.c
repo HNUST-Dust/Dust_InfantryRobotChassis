@@ -25,6 +25,9 @@
 #include "Init.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "usart.h"
+#include "stdio.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -129,5 +132,18 @@ void StartDefaultTask(void *argument)
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
 
+void vApplicationStackOverflowHook(TaskHandle_t xTask, signed char *pcTaskName)
+{
+    /* 关闭中断，防止系统继续运行出错 */
+    taskDISABLE_INTERRUPTS();
+
+    /* 打印溢出信息 */
+    uint8_t buffer[100];
+    snprintf((char *)buffer, sizeof(buffer), "Stack overflow in task: %s\r\n", pcTaskName);
+    HAL_UART_Transmit(&huart7, (uint8_t *)buffer, strlen(buffer), 10);
+
+    /* 或执行紧急重启（如果你需要） */
+    // EmergencyReboot();
+}
 /* USER CODE END Application */
 

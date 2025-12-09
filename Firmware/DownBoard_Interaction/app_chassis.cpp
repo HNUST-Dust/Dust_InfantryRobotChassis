@@ -1,10 +1,11 @@
 // app
 #include "FreeRTOS.h"
 #include "app_chassis.h"
+#include "debug_tools.h"
 #include "ins_task.h"
 #include "BMI088driver.h"
 #include "imu.hpp"
-
+#include "bsp_dwt.h"
 
 void Chassis::Init()
 {
@@ -80,12 +81,20 @@ void Chassis::Task()
 {
     for (;;)
     {
+        uint64_t start_dwt_time = dwt_get_timeline_us();
+
         // 旋转矩阵处理
         RotationMatrixTransform();
         // 运动学逆解算
         KinematicsInverseResolution();
         // 输出到底盘电机
         OutputToMotor();
+
+        uint64_t final_dwt_time = dwt_get_timeline_us();
+        uint64_t delta_dwt_time = final_dwt_time - start_dwt_time;
+
+        // debug_tools_.VofaSendFloat((float)delta_dwt_time);
+        // debug_tools_.VofaSendTail();
         osDelay(pdMS_TO_TICKS(1));// 1khz电机控制频率
     }
 }

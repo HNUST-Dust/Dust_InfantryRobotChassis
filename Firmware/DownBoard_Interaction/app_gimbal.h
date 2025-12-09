@@ -12,6 +12,7 @@
 #define APP_GIMBAL_H
 
 // module
+#include "debug_tools.h"
 #include "dvc_motor_dm.h"
 #include "interpolation.hpp"
 #include "low_pass_filter.hpp"
@@ -52,6 +53,8 @@ public:
     LowPassFilter yaw_omega_filter_;
     LowPassFilter pitch_omega_filter_;
 
+    DebugTools debug_tools_;
+    
     void Init();
     void Task();
     void Exit();
