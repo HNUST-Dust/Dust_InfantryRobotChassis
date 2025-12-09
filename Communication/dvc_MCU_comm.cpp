@@ -49,34 +49,62 @@ void McuComm::Task()
 void McuComm::CanSendCommand()
 {
      static uint8_t can_tx_frame[8];
-     can_tx_frame[0] = mcu_send_data_.start_of_frame;
-     can_tx_frame[1] = mcu_send_data_.armor;
      // 把 float 转换成字节
      union { float f; uint8_t b[4]; } conv;
-
-     conv.f = mcu_send_data_.yaw;
-     can_tx_frame[2] = conv.b[0];
-     can_tx_frame[3] = conv.b[1];
-     can_tx_frame[4] = conv.b[2];
-     can_tx_frame[5] = conv.b[3];
-     can_tx_frame[6] = 0x00;
-     can_tx_frame[7] = 0x00;
-
-     // 发送第一帧（8字节）
-     can_send_data(can_manage_object_->can_handler, can_tx_id_, can_tx_frame, 8);
-
-     // ---- 第2帧：pitch 的 4 个字节 ----
-     conv.f = mcu_send_data_.pitch;
-     can_tx_frame[0] = conv.b[0];
-     can_tx_frame[1] = conv.b[1];
-     can_tx_frame[2] = conv.b[2];
-     can_tx_frame[3] = conv.b[3];
-     can_tx_frame[4] = 0xBA;
+     // ---- 第1帧：yaw_angle 的 4 个字节 ----
+     can_tx_frame[0] = mcu_send_data_.SOF1;
+     conv.f = mcu_send_data_.yaw_angle;
+     can_tx_frame[1] = conv.b[0];
+     can_tx_frame[2] = conv.b[1];
+     can_tx_frame[3] = conv.b[2];
+     can_tx_frame[4] = conv.b[3];
      can_tx_frame[5] = 0x00;
      can_tx_frame[6] = 0x00;
      can_tx_frame[7] = 0x00;
 
-     // 发送第二帧（8字节）
+     // 发送第1帧（8字节）
+     can_send_data(can_manage_object_->can_handler, can_tx_id_, can_tx_frame, 8);
+
+     // ---- 第2帧：yaw_omega 的 4 个字节 ----
+     can_tx_frame[0] = mcu_send_data_.SOF2;
+     conv.f = mcu_send_data_.yaw_omega;
+     can_tx_frame[1] = conv.b[0];
+     can_tx_frame[2] = conv.b[1];
+     can_tx_frame[3] = conv.b[2];
+     can_tx_frame[4] = conv.b[3];
+     can_tx_frame[5] = 0x00;
+     can_tx_frame[6] = 0x00;
+     can_tx_frame[7] = 0x00;
+
+     // 发送第2帧（8字节）
+     can_send_data(can_manage_object_->can_handler, can_tx_id_, can_tx_frame, 8);
+
+     // ---- 第3帧：pitch_angle 的 4 个字节 ----
+     can_tx_frame[0] = mcu_send_data_.SOF3;
+     conv.f = mcu_send_data_.pitch_angle;
+     can_tx_frame[1] = conv.b[0];
+     can_tx_frame[2] = conv.b[1];
+     can_tx_frame[3] = conv.b[2];
+     can_tx_frame[4] = conv.b[3];
+     can_tx_frame[5] = 0x00;
+     can_tx_frame[6] = 0x00;
+     can_tx_frame[7] = 0x00;
+
+     // 发送第3帧（8字节）
+     can_send_data(can_manage_object_->can_handler, can_tx_id_, can_tx_frame, 8);
+
+     // ---- 第4帧：pitch_omega 的 4 个字节 ----
+     can_tx_frame[0] = mcu_send_data_.SOF4;
+     conv.f = mcu_send_data_.pitch_omega;
+     can_tx_frame[1] = conv.b[0];
+     can_tx_frame[2] = conv.b[1];
+     can_tx_frame[3] = conv.b[2];
+     can_tx_frame[4] = conv.b[3];
+     can_tx_frame[5] = 0x00;
+     can_tx_frame[6] = 0x00;
+     can_tx_frame[7] = 0x00;
+
+     // 发送第4帧（8字节）
      can_send_data(can_manage_object_->can_handler, can_tx_id_, can_tx_frame, 8);
 }
 
@@ -112,20 +140,24 @@ void McuComm::CanRxCpltCallback(uint8_t* rx_data)
                }
                mcu_comm_data_.supercap             = rx_data[7];
                break;
-          case 0xAC: // 自瞄yaw包
-               mcu_autoaim_data_.start_of_yaw_frame = rx_data[0];
-               mcu_autoaim_data_.yaw[0]             = rx_data[1];
-               mcu_autoaim_data_.yaw[1]             = rx_data[2];
-               mcu_autoaim_data_.yaw[2]             = rx_data[3];
-               mcu_autoaim_data_.yaw[3]             = rx_data[4];
+          case 0xFA: // 自瞄yaw_angle包
+               memcpy(&mcu_autoaim_data_.yaw_angle,&rx_data[1],4 * sizeof(uint8_t));
                break;
-          case 0xAD: // 自瞄pitch包
-               mcu_autoaim_data_.start_of_pitch_frame  = rx_data[0];
-               mcu_autoaim_data_.pitch[0]              = rx_data[1];
-               mcu_autoaim_data_.pitch[1]              = rx_data[2];
-               mcu_autoaim_data_.pitch[2]              = rx_data[3];
-               mcu_autoaim_data_.pitch[3]              = rx_data[4];
+          case 0xFB: // 自瞄yaw_omega包
+               memcpy(&mcu_autoaim_data_.yaw_omega,&rx_data[1],4 * sizeof(uint8_t));
                break;
+          case 0xFC: // 自瞄yaw_torque包
+               memcpy(&mcu_autoaim_data_.yaw_torque,&rx_data[1],4 * sizeof(uint8_t));
+               break;
+          case 0xFD: // 自瞄pitch_angle包
+               memcpy(&mcu_autoaim_data_.pitch_angle,&rx_data[1],4 * sizeof(uint8_t));
+               break;
+          case 0xFE: // 自瞄pitch_omega包
+               memcpy(&mcu_autoaim_data_.pitch_omega,&rx_data[1],4 * sizeof(uint8_t));
+               break;
+          case 0xFF: // 自瞄pitch_torque包
+               memcpy(&mcu_autoaim_data_.pitch_torque,&rx_data[1],4 * sizeof(uint8_t));
+               break;               
           case 0xAE: // 云台IMU yaw包
                mcu_imu_data_.start_of_yaw_frame = rx_data[0];
                mcu_imu_data_.yaw_total_angle[0]             = rx_data[1];
@@ -145,5 +177,4 @@ void McuComm::CanRxCpltCallback(uint8_t* rx_data)
           default:
                break;
      }
-
 }

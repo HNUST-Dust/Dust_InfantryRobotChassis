@@ -132,22 +132,21 @@ void Robot::Task()
 
 
         /********************** mini PC ***********************/   
-        memcpy(&mcu_comm_.mcu_autoaim_data_.pitch_f,mcu_comm_.mcu_autoaim_data_.pitch,sizeof(float));
-        if((fabs(mcu_comm_.mcu_autoaim_data_.pitch_f) > 0.00f) && (fabs(mcu_comm_.mcu_autoaim_data_.pitch_f) <0.3f)){
+        // memcpy(&mcu_comm_.mcu_autoaim_data_.pitch_f,mcu_comm_.mcu_autoaim_data_.pitch,sizeof(float));
+        if((fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) > 0.00f) && (fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) <0.3f)){
             // virtual_pitch_angle_ -= mcu_comm_.mcu_autoaim_data_.pitch_f;
             // virtual_pitch_angle_ = mcu_comm_.mcu_autoaim_data_.pitch_f;
         }
         // virtual_pitch_angle_ = slew_limit(virtual_pitch_angle_, gimbal_.GetPitchNowAngleNoncumulative(), 0.001f, 125.0f);
         
-        memcpy(&mcu_comm_.mcu_autoaim_data_.yaw_f,mcu_comm_.mcu_autoaim_data_.yaw,sizeof(float));
+        // memcpy(&mcu_comm_.mcu_autoaim_data_.yaw_f,mcu_comm_.mcu_autoaim_data_.yaw,sizeof(float));
         // virtual_yaw_angle_ =  gimbal_.GetYawNowAngleNoncumulative() - mcu_comm_.mcu_autoaim_data_.yaw_f;
 
         // 回传云台电机角度数据
-        mcu_comm_.mcu_send_data_.armor = 0x00;
         // mcu_comm_.mcu_send_data_.yaw = -yaw_err;
-        mcu_comm_.mcu_send_data_.yaw = -gimbal_.GetYawNowAngleNoncumulative();
+        mcu_comm_.mcu_send_data_.yaw_angle = -gimbal_.GetYawNowAngleNoncumulative();
         // mcu_comm_.mcu_send_data_.pitch = -gimbal_.GetPitchNowAngleNoncumulative();
-        mcu_comm_.mcu_send_data_.pitch = 0.f;
+        mcu_comm_.mcu_send_data_.pitch_angle = 0.f;
         mcu_comm_.CanSendCommand();
 
         
