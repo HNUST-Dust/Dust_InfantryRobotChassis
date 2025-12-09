@@ -22,12 +22,12 @@ void Gimbal::Init()
     motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,3.14159f);
     motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
 
-    //yaw轴角度环PID初始化
+     //yaw轴角度环PID初始化
     yaw_angle_pid_.Init(
         100.0f,
         5.0f,
-        9.0f,
-        44.0f,
+        15.0f,
+        0.0f,
         0.0f,
         44.0f,
         0.001f,
@@ -40,10 +40,10 @@ void Gimbal::Init()
     );
     //pitch轴角度环PID初始化
     pitch_angle_pid_.Init(
-        350.0f,
-        160.0f,
-        11.0f,
-        44.0f,
+        350.0f,//350
+        20.0f,//160
+        20.0f,
+        0.0f,
         0.0f,
         44.0f,
         0.001f,
@@ -52,13 +52,13 @@ void Gimbal::Init()
         0.0f,
         0.0f,
         PID_D_First_DISABLE,
-        0.01f  
+        0.02f  
     );
     //yaw轴速度环PID初始化
     yaw_omega_pid_.Init(
         0.06f,
         0.008f,
-        0.000108f,
+        0.00011f,
         0.1f,
         3.0f,
         9.9f,
