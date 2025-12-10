@@ -128,6 +128,7 @@ public:
 
     void CanSendCommand();
 
+    void Task();
 
 protected:
     // 绑定的CAN
@@ -140,6 +141,9 @@ protected:
     uint8_t tx_data_[8];
     // 内部函数
     void DataProcess();
+
+        // FreeRTOS 入口，静态函数
+    static void TaskEntry(void *param);
 };
 
 #endif //MODULES_COMM_DVC_MCU_COMM_H

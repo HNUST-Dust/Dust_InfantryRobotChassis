@@ -17,10 +17,33 @@ void McuComm::Init(
 
      can_rx_id_ = can_rx_id;
      can_tx_id_ = can_tx_id;
-     
+     static const osThreadAttr_t kMcuCommTaskAttr = {
+          .name = "mcu_comm_task",
+          .stack_size = 512,
+          .priority = (osPriority_t) osPriorityNormal
+     };
+     // 启动任务，将 this 传入
+     osThreadNew(McuComm::TaskEntry, this, &kMcuCommTaskAttr);
 }
 
+// 任务入口（静态函数）—— osThreadNew 需要这个原型
+void McuComm::TaskEntry(void *argument) {
+     McuComm *self = static_cast<McuComm *>(argument);  // 还原 this 指针
+     self->Task();  // 调用成员函数
+}
 
+// 实际任务逻辑
+void McuComm::Task()
+{
+     struct McuCommData mcu_comm_data_local;
+     for (;;)
+     {    // 用临界区一次性复制，避免撕裂
+          // __disable_irq();
+          // mcu_comm_data__Local = *const_cast<const struct McuCommData*>(&(mcu_comm_data_));
+          // __enable_irq();
+          // osDelay(pdMS_TO_TICKS(10));
+     }
+}
 void McuComm::CanSendCommand()
 {
      static uint8_t can_tx_frame[8];
