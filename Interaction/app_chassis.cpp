@@ -4,10 +4,11 @@
 #include "ins_task.h"
 #include "bmi088driver.h"
 #include "imu.hpp"
-
+#include "cmsis_os.h"
 
 void Chassis::Init()
 {
+    // debug_tools_ .VofaInit();
     // 3508电机初始化
     motor_chassis_1_.pid_omega_.Init(1.0f,0.0f,0.0f);
     motor_chassis_2_.pid_omega_.Init(1.0f,0.0f,0.0f);
@@ -26,7 +27,7 @@ void Chassis::Init()
 
     static const osThreadAttr_t kChassisTaskAttr = {
         .name = "chassis_task",
-        .stack_size = 512,
+        .stack_size = 512,//剩余260字节
         .priority = (osPriority_t) osPriorityNormal
     };
     osThreadNew(Chassis::TaskEntry, this, &kChassisTaskAttr);
@@ -78,8 +79,11 @@ void Chassis::OutputToMotor()
 }
 void Chassis::Task()
 {
+
     for (;;)
     {
+
+
         // 旋转矩阵处理
         RotationMatrixTransform();
         // 运动学逆解算

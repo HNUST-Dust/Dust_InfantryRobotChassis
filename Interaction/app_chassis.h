@@ -13,6 +13,7 @@
 
 
 // module
+#include "debug_tools.h"
 #include "dvc_motor_dji.h"
 #include "imu.hpp"
 
@@ -25,6 +26,8 @@ public:
                  motor_chassis_2_,
                  motor_chassis_3_,
                  motor_chassis_4_;
+
+    DebugTools  debug_tools_;
     void Init();
     void Task();
     void Exit();

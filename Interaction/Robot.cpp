@@ -21,6 +21,10 @@
 // bsp
 #include "bsp_dwt.h"
 
+// FreeRTOS stack check
+#include "task.h"
+
+
 void Robot::Init()
 {
     dwt_init(480);
@@ -61,7 +65,7 @@ void Robot::Init()
 
     static const osThreadAttr_t kRobotTaskAttr = {
         .name = "robot_task",
-        .stack_size = 768,
+        .stack_size = 768,//剩余492字节
         .priority = (osPriority_t) osPriorityNormal
     };
     osThreadNew(Robot::TaskEntry, this, &kRobotTaskAttr);
@@ -78,6 +82,7 @@ void Robot::Task()
     McuCommData mcu_comm_data_local;
     McuCommData mcu_comm_data_local_pre;
     uint8_t first_flag = 0;
+
     for (;;)
     {
         __disable_irq();
@@ -87,6 +92,8 @@ void Robot::Task()
             first_flag = 1;
             mcu_comm_data_local_pre = mcu_comm_data_local;
         }
+        
+
 
         /********************** 云台 ***********************/   
         virtual_yaw_angle_ += (mcu_comm_data_local.yaw - 127.0f)*YAW_SENSITIVITY;
@@ -161,7 +168,7 @@ void Robot::Task()
         
  
         /********************** 调试信息 ***********************/   
-        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
+        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(virtual_pitch_angle_);
@@ -177,7 +184,7 @@ void Robot::Task()
         // debug_tools_.VofaSendFloat(yaw_err);
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_autoaim_data_.pitch_f);
         // 调试帧尾部
-        debug_tools_.VofaSendTail();
+        // debug_tools_.VofaSendTail();
 
         mcu_comm_data_local_pre = mcu_comm_data_local;
 

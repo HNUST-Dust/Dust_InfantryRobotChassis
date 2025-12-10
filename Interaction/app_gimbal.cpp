@@ -15,7 +15,7 @@
 #include "interpolation.hpp"
 #include "alg_math.h"
 #include "low_pass_filter.hpp"
-
+#include "cmsis_os.h"
 void Gimbal::Init()
 {
     // 6220电机初始化
@@ -118,9 +118,10 @@ void Gimbal::Init()
     // osDelay(pdMS_TO_TICKS(10));
     motor_pitch_.Output();
 
+    // debug_tools_.VofaInit();
     static const osThreadAttr_t kGimbalTaskAttr = {
         .name = "gimbal_task",
-        .stack_size = 512,
+        .stack_size = 512,//剩余260字节
         .priority = (osPriority_t) osPriorityNormal
     };
     osThreadNew(Gimbal::TaskEntry, this, &kGimbalTaskAttr);
@@ -242,7 +243,7 @@ void Gimbal::TaskEntry(void *argument)
 void Gimbal::Task()
 {
     uint8_t first_run_flag = 0; // 用于标记是否是第一次运行
-
+  
     for (;;)
     {
         if(first_run_flag == 0){ // 第一次运行到这里，pre_pitch_angle未初始化

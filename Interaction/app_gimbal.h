@@ -12,6 +12,7 @@
 #define APP_GIMBAL_H
 
 // module
+#include "debug_tools.h"
 #include "dvc_motor_dm.h"
 #include "interpolation.hpp"
 #include "low_pass_filter.hpp"
@@ -34,6 +35,7 @@ enum GimbalControlType
 class Gimbal
 {
 public:
+
     // 2个DM6220，作为云台Yaw和Pitch轴控制电机
     MotorDmNormal motor_yaw_;
     MotorDmNormal motor_pitch_;
@@ -156,6 +158,8 @@ public:
 
 
 protected:
+    DebugTools debug_tools_;
+
     // pitch轴最小值
     float min_pitch_angle_ = -0.30f;
     // pitch轴最大值

@@ -220,6 +220,20 @@ void PeriphCommonClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
+// FreeRTOS stack overflow hook
+void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
+{
+    // Turn on an error LED if available
+    // HAL_GPIO_WritePin(ERROR_LED_GPIO_Port, ERROR_LED_Pin, GPIO_PIN_SET);
+    
+    // Print task name for debugging (if UART is available)
+    // printf("Stack overflow in task: %s\r\n", pcTaskName);
+    
+    // Disable interrupts and halt
+    taskDISABLE_INTERRUPTS();
+    for(;;);
+}
+
 /* USER CODE END 4 */
 
 /**
