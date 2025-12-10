@@ -9,7 +9,7 @@ class DebugTools
 private:
 
 public:
-    void VofaInit(UART_HandleTypeDef *huart);
+    void VofaInit();
     void VofaSendFloat(float data);
     void VofaSendTail();
 };

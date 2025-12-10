@@ -40,6 +40,7 @@ struct UartManageObject
     uint8_t rx_buffer[UART_BUFFER_SIZE];
     uint16_t rx_buffer_length;
     UartCallback callback_function;
+    bool tx_cplt_flag;
 };
 
 /* Exported variables --------------------------------------------------------*/

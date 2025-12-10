@@ -24,6 +24,7 @@
 void Robot::Init()
 {
     dwt_init(480);
+    debug_tools_.VofaInit();
     // 上下板通讯组件初始化
     mcu_comm_.Init(&hfdcan2, 0x01, 0x00);
     // 陀螺仪初始化
@@ -132,14 +133,11 @@ void Robot::Task()
 
 
         /********************** mini PC ***********************/   
-        // memcpy(&mcu_comm_.mcu_autoaim_data_.pitch_f,mcu_comm_.mcu_autoaim_data_.pitch,sizeof(float));
         if((fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) > 0.00f) && (fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) <0.3f)){
             // virtual_pitch_angle_ -= mcu_comm_.mcu_autoaim_data_.pitch_f;
             // virtual_pitch_angle_ = mcu_comm_.mcu_autoaim_data_.pitch_f;
         }
-        // virtual_pitch_angle_ = slew_limit(virtual_pitch_angle_, gimbal_.GetPitchNowAngleNoncumulative(), 0.001f, 125.0f);
         
-        // memcpy(&mcu_comm_.mcu_autoaim_data_.yaw_f,mcu_comm_.mcu_autoaim_data_.yaw,sizeof(float));
         // virtual_yaw_angle_ =  gimbal_.GetYawNowAngleNoncumulative() - mcu_comm_.mcu_autoaim_data_.yaw_f;
 
         // 回传云台电机角度数据
@@ -147,7 +145,7 @@ void Robot::Task()
         mcu_comm_.mcu_send_data_.yaw_angle = -gimbal_.GetYawNowAngleNoncumulative();
         // mcu_comm_.mcu_send_data_.pitch = -gimbal_.GetPitchNowAngleNoncumulative();
         mcu_comm_.mcu_send_data_.pitch_angle = 0.f;
-        mcu_comm_.CanSendCommand();
+        // mcu_comm_.CanSendCommand();
 
         
         /********************** 超级电容 ***********************/   
@@ -180,7 +178,6 @@ void Robot::Task()
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_autoaim_data_.pitch_f);
         // 调试帧尾部
         debug_tools_.VofaSendTail();
-
 
         mcu_comm_data_local_pre = mcu_comm_data_local;
 

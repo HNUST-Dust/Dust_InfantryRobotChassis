@@ -45,6 +45,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
         g_uart1_manage_object.uart_handler = huart;
         g_uart1_manage_object.callback_function = callback_function;
         g_uart1_manage_object.rx_buffer_length = rx_buffer_length;
+        g_uart1_manage_object.tx_cplt_flag = true;
         HAL_UARTEx_ReceiveToIdle_DMA(huart, g_uart1_manage_object.rx_buffer, g_uart1_manage_object.rx_buffer_length);
     }
     else if (huart->Instance == USART2)
@@ -52,6 +53,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
         g_uart2_manage_object.uart_handler = huart;
         g_uart2_manage_object.callback_function = callback_function;
         g_uart2_manage_object.rx_buffer_length = rx_buffer_length;
+        g_uart2_manage_object.tx_cplt_flag = true;
         HAL_UARTEx_ReceiveToIdle_DMA(huart, g_uart2_manage_object.rx_buffer, g_uart2_manage_object.rx_buffer_length);
     }
     else if (huart->Instance == USART3)
@@ -59,6 +61,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
         g_uart3_manage_object.uart_handler = huart;
         g_uart3_manage_object.callback_function = callback_function;
         g_uart3_manage_object.rx_buffer_length = rx_buffer_length;
+        g_uart3_manage_object.tx_cplt_flag = true;
         HAL_UARTEx_ReceiveToIdle_DMA(huart, g_uart3_manage_object.rx_buffer, g_uart3_manage_object.rx_buffer_length);
     }
     else if (huart->Instance == UART4)
@@ -66,6 +69,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
         g_uart4_manage_object.uart_handler = huart;
         g_uart4_manage_object.callback_function = callback_function;
         g_uart4_manage_object.rx_buffer_length = rx_buffer_length;
+        g_uart4_manage_object.tx_cplt_flag = true;
         HAL_UARTEx_ReceiveToIdle_DMA(huart, g_uart4_manage_object.rx_buffer, g_uart4_manage_object.rx_buffer_length);
     }
     else if (huart->Instance == UART5)
@@ -73,6 +77,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
         g_uart5_manage_object.uart_handler = huart;
         g_uart5_manage_object.callback_function = callback_function;
         g_uart5_manage_object.rx_buffer_length = rx_buffer_length;
+        g_uart5_manage_object.tx_cplt_flag = true;
         HAL_UARTEx_ReceiveToIdle_DMA(huart, g_uart5_manage_object.rx_buffer, g_uart5_manage_object.rx_buffer_length);
     }
     else if (huart->Instance == USART6)
@@ -80,6 +85,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
         g_uart6_manage_object.uart_handler = huart;
         g_uart6_manage_object.callback_function = callback_function;
         g_uart6_manage_object.rx_buffer_length = rx_buffer_length;
+        g_uart6_manage_object.tx_cplt_flag = true;
         HAL_UARTEx_ReceiveToIdle_DMA(huart, g_uart6_manage_object.rx_buffer, g_uart6_manage_object.rx_buffer_length);
     }
     else if (huart->Instance == UART7)
@@ -87,6 +93,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
         g_uart7_manage_object.uart_handler = huart;
         g_uart7_manage_object.callback_function = callback_function;
         g_uart7_manage_object.rx_buffer_length = rx_buffer_length;
+        g_uart7_manage_object.tx_cplt_flag = true;
         HAL_UARTEx_ReceiveToIdle_DMA(huart, g_uart7_manage_object.rx_buffer, g_uart7_manage_object.rx_buffer_length);
     }
     else if (huart->Instance == UART8)
@@ -94,6 +101,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
         g_uart8_manage_object.uart_handler = huart;
         g_uart8_manage_object.callback_function = callback_function;
         g_uart8_manage_object.rx_buffer_length = rx_buffer_length;
+        g_uart8_manage_object.tx_cplt_flag = true;
         HAL_UARTEx_ReceiveToIdle_DMA(huart, g_uart8_manage_object.rx_buffer, g_uart8_manage_object.rx_buffer_length);
     }
 }
@@ -274,4 +282,10 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
     }
 }
 
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart == &huart7) {
+        g_uart7_manage_object.tx_cplt_flag = true;
+    }
+}
 /************************ COPYRIGHT(C) HNUST-DUST **************************/

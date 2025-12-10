@@ -86,6 +86,7 @@ void Chassis::Task()
         KinematicsInverseResolution();
         // 输出到底盘电机
         OutputToMotor();
+        
         osDelay(pdMS_TO_TICKS(1));// 1khz电机控制频率
     }
 }
