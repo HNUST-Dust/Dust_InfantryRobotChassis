@@ -17,6 +17,11 @@
 #include "interpolation.hpp"
 #include "low_pass_filter.hpp"
 
+// #define YAW_ENCODER_MODE  
+#define YAW_IMU_MODE      
+
+// #define PITCH_ENCODER_MODE
+#define PITCH_IMU_MODE
 
 /**
  * @brief 云台控制类型
@@ -156,6 +161,15 @@ public:
         pitch_control_type_ = gimbal_control_type;
     }
 
+    inline void SetYawImuAngle(float imu_yaw_angle)
+    {
+        imu_yaw_angle_ = imu_yaw_angle;
+    }
+
+    inline void SetPitchImuAngle(float imu_pitch_angle)
+    {
+        imu_pitch_angle_ = imu_pitch_angle;
+    }
 
 protected:
     DebugTools debug_tools_;
@@ -223,6 +237,11 @@ protected:
     float virtual_yaw_angle_ = 0.0f;
     // pitch轴虚拟轴角度
     float virtual_pitch_angle_ = 0.0f;
+
+    // yaw imu角度
+    float imu_yaw_angle_ = 0.0f;
+    // pitch imu角度
+    float imu_pitch_angle_ = 0.0f;
 
     void SelfResolution();
     void MotorNearestTransposition();

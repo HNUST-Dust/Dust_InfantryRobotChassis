@@ -22,6 +22,7 @@ void Gimbal::Init()
     motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,3.14159f);
     motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
 
+#ifdef YAW_ENCODER_MODE
      //yaw轴角度环PID初始化
     yaw_angle_pid_.Init(
         100.0f,
@@ -38,6 +39,26 @@ void Gimbal::Init()
         PID_D_First_DISABLE,
         0.01f  
     );
+#endif
+#ifdef YAW_IMU_MODE
+     //yaw轴角度环PID初始化
+    yaw_angle_pid_.Init(
+        1.40f,
+        1.4f,
+        0.60f,
+        0.0f,
+        0.0f,
+        44.0f,
+        0.001f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        PID_D_First_DISABLE,
+        0.01f  
+    );
+#endif
+#ifdef PITCH_ENCODER_MODE
     //pitch轴角度环PID初始化
     pitch_angle_pid_.Init(
         350.0f,//350
@@ -54,6 +75,25 @@ void Gimbal::Init()
         PID_D_First_DISABLE,
         0.02f  
     );
+#endif
+#ifdef PITCH_IMU_MODE
+    //pitch轴角度环PID初始化
+    pitch_angle_pid_.Init(
+        4.0f,//350
+        0.2f,//160
+        0.2f,
+        0.0f,
+        0.0f,
+        44.0f,
+        0.001f,
+        0.0f,
+        0.0f,
+        0.0f,
+        0.0f,
+        PID_D_First_DISABLE,
+        0.02f  
+    );
+#endif
     //yaw轴速度环PID初始化
     yaw_omega_pid_.Init(
         0.06f,
@@ -140,8 +180,15 @@ void Gimbal::Exit()
 void Gimbal::SelfResolution()
 {
     static uint8_t first_resolution_flag = 0;
+
     now_pitch_angle_ = motor_pitch_.GetNowAngle();
+    pitch_now_angle_noncumulative_ = motor_pitch_.GetNowAngleNoncumulative();
+
+#ifdef YAW_ENCODER_MODE
+    
     now_yaw_angle_   = motor_yaw_.GetNowAngle();
+
+    // 过零处理
     if(first_resolution_flag == 0){
         first_resolution_flag = 1;
         yaw_zero_angle_ = now_yaw_angle_;
@@ -150,7 +197,12 @@ void Gimbal::SelfResolution()
         yaw_relative_zero_angle_ = get_relative_angle_pm_pi(now_yaw_angle_, yaw_zero_angle_);
     }
     yaw_now_angle_noncumulative_ = motor_yaw_.GetNowAngleNoncumulative();
-    pitch_now_angle_noncumulative_ = motor_pitch_.GetNowAngleNoncumulative();
+    
+#endif
+
+#ifdef YAW_IMU_MODE
+    now_yaw_angle_ = imu_yaw_angle_;
+#endif 
 
     now_pitch_omega_ = motor_pitch_.GetNowOmega();
     now_yaw_omega_   = motor_yaw_.GetNowOmega();
@@ -159,6 +211,7 @@ void Gimbal::SelfResolution()
     now_yaw_torque_ = motor_yaw_.GetNowTorque();
 
     // yaw轴角度环
+#ifdef YAW_ENCODER_MODE
     yaw_angle_pid_.SetTarget(0);
     float yaw_err = CalcYawError(virtual_yaw_angle_, normalize_angle_pm_pi(GetNowYawAngle()/0.8f));
     yaw_angle_pid_.SetNow(yaw_err);
@@ -168,21 +221,33 @@ void Gimbal::SelfResolution()
     }else if(yaw_control_type_ == GIMBAL_CONTROL_TYPE_OMEGA){
         SetTargetYawOmega(GetTargetYawOmega() + GetYawOmegaFeedforword());
     }
+#endif
+#ifdef YAW_IMU_MODE
+    yaw_angle_pid_.SetTarget(-virtual_yaw_angle_);
+    yaw_angle_pid_.SetNow(imu_yaw_angle_);
+    yaw_angle_pid_.CalculatePeriodElapsedCallback();
+    SetTargetYawOmega(-yaw_angle_pid_.GetOut());
+#endif
     // yaw轴速度环
-    // yaw_omega_pid_.SetTarget(yaw_angle_pid_.GetOut());
-    // float filtered_omega_out = yaw_omega_filter_.Update(GetTargetYawOmega());
     yaw_omega_pid_.SetTarget(GetTargetYawOmega());
     float filtered_omega = yaw_omega_filter_.Update(GetNowYawOmega());
     yaw_omega_pid_.SetNow(filtered_omega);
     yaw_omega_pid_.CalculatePeriodElapsedCallback();
 
     // pitch轴角度环
+#ifdef PITCH_ENCODER_MODE
     // pitch_angle_pid_.SetTarget(virtual_pitch_angle_);
     pitch_angle_pid_.SetTarget(virtual_pitch_angle_);
     pitch_angle_pid_.SetNow(GetPitchNowAngleNoncumulative());
     pitch_angle_pid_.CalculatePeriodElapsedCallback();
     SetTargetPitchOmega(pitch_angle_pid_.GetOut());
-    
+#endif
+#ifdef PITCH_IMU_MODE
+    pitch_angle_pid_.SetTarget(virtual_pitch_angle_);
+    pitch_angle_pid_.SetNow(imu_pitch_angle_);
+    pitch_angle_pid_.CalculatePeriodElapsedCallback();
+    SetTargetPitchOmega(-pitch_angle_pid_.GetOut());
+#endif
     // pitch轴速度环
     pitch_omega_pid_.SetTarget(GetTargetPitchOmega());
     float pitch_filtered_omega = pitch_omega_filter_.Update(GetNowPitchOmega());

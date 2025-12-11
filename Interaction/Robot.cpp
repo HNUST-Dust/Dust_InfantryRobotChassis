@@ -92,18 +92,18 @@ void Robot::Task()
             first_flag = 1;
             mcu_comm_data_local_pre = mcu_comm_data_local;
         }
-        
-
 
         /********************** 云台 ***********************/   
-        virtual_yaw_angle_ += (mcu_comm_data_local.yaw - 127.0f)*YAW_SENSITIVITY;
-        virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX/128.0f);
-        if (virtual_pitch_angle_ >= PITCH_RANGE_MAX){
-            virtual_pitch_angle_ = PITCH_RANGE_MAX;
-        }else if(virtual_pitch_angle_ <= -PITCH_RANGE_MAX){
-            virtual_pitch_angle_ = -PITCH_RANGE_MAX;
+        virtual_yaw_angle_ += (mcu_comm_data_local.yaw - 127.0f)*YAW_SENSITIVITY_USED_IMU;
+        virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX_USE_IMU/128.0f);
+        if (virtual_pitch_angle_ >= PITCH_RANGE_MAX_USE_IMU){
+            virtual_pitch_angle_ = PITCH_RANGE_MAX_USE_IMU;
+        }else if(virtual_pitch_angle_ <= -PITCH_RANGE_MAX_USE_IMU){
+            virtual_pitch_angle_ = -PITCH_RANGE_MAX_USE_IMU;
         }
 
+        gimbal_.SetYawImuAngle(mcu_comm_.mcu_imu_data_.yaw_total_angle_f);
+        gimbal_.SetPitchImuAngle(mcu_comm_.mcu_imu_data_.pitch_f);
         gimbal_.SetVirtualYawAngle(virtual_yaw_angle_);
         gimbal_.SetVirtualPitchAngle(virtual_pitch_angle_);
         // gimbal_.SetVirtualPitchAngle(0.f);        
@@ -168,7 +168,7 @@ void Robot::Task()
         
  
         /********************** 调试信息 ***********************/   
-        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
+        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
         // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(virtual_pitch_angle_);
@@ -184,7 +184,7 @@ void Robot::Task()
         // debug_tools_.VofaSendFloat(yaw_err);
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_autoaim_data_.pitch_f);
         // 调试帧尾部
-        // debug_tools_.VofaSendTail();
+        debug_tools_.VofaSendTail();
 
         mcu_comm_data_local_pre = mcu_comm_data_local;
 

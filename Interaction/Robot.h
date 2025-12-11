@@ -9,15 +9,17 @@
 #include "supercap.h"
 #include "debug_tools.h"
 
-#define YAW_SENSITIVITY         0.00015F//0.00008
-#define YAW_SPEED_SENSITIVITY   0.05f
-#define PITCH_RANGE_MAX         0.3f
+#define YAW_SENSITIVITY                  0.00008F//0.00008
+#define YAW_SENSITIVITY_USED_IMU         0.00400F//0.00008
+#define YAW_SPEED_SENSITIVITY            0.05f
+#define PITCH_RANGE_MAX                  0.3f
+#define PITCH_RANGE_MAX_USE_IMU          10.0f
 
-#define CHASSIS_SPEED           15.0f
-#define CHASSIS_SPIN_SPEED      30.0f
+#define CHASSIS_SPEED                    15.0f
+#define CHASSIS_SPIN_SPEED               30.0f
 
-#define YAW_GEAR_RATIO          0.8f
-#define YAW_FEEDFORWORD_RATIO   0.19f
+#define YAW_GEAR_RATIO                   0.8f
+#define YAW_FEEDFORWORD_RATIO            0.19f
 
 /**
  * @brief 小陀螺类型
