@@ -10,12 +10,13 @@
  */
 #ifndef MODULES_COMM_DVC_MCU_COMM_H
 #define MODULES_COMM_DVC_MCU_COMM_H
+
 #include "bsp_can.h"
 #include "supercap.h"
+#include <cstdint>
 
-
-
-enum ChassisSpinMode{
+enum ChassisSpinMode
+{
     CHASSIS_SPIN_CLOCKWISE          = 0,
     CHASSIS_SPIN_DISABLE            = 1,
     CHASSIS_SPIN_COUNTER_CLOCK_WISE = 2,
@@ -23,7 +24,6 @@ enum ChassisSpinMode{
 
 struct McuCommData
 {
-    uint8_t         start_of_frame;                             // 帧头
     uint8_t         yaw              = 127;                     // yaw
     uint8_t         pitch_angle      = 127;                     // 俯仰角度
     uint8_t         chassis_speed_x  = 127;                     // 平移方向：前、后、左、右
@@ -32,51 +32,44 @@ struct McuCommData
     ChassisSpinMode chassis_spin     = CHASSIS_SPIN_DISABLE;    // 小陀螺：不转、顺时针转、逆时针转
     uint8_t         supercap         = SUPERCAP_STATUS_DISABLE; // 超级电容：充电、放电
 };
+constexpr uint8_t REMOTE_CONTROL_ID = 0xAB;
 
 struct McuSendData
 {
-    uint8_t SOF1 = 0x0A;
-    float yaw_angle;   // 4字节浮点数
-    uint8_t SOF2 = 0x0B;
-    float yaw_omega;  // 4字节浮点数
-    uint8_t SOF3 = 0x0C;
-    float pitch_angle; // 4字节浮点数
-    uint8_t SOF4 = 0x0D;
-    float pitch_omega; // 4字节浮点数
+    float yaw_angle;   
+    float yaw_omega;  
+    float pitch_angle; 
+    float pitch_omega; 
 };
+constexpr uint16_t YAW_INFO_ID      = 0x0A;
+constexpr uint16_t PITCH_INFO_ID    = 0x0B;
+
 
 struct McuAutoaimData
 {
-    uint8_t SOF1 = 0xFA;
     float yaw_angle;
-    uint8_t SOF2 = 0xFB;
     float yaw_omega;
-    uint8_t SOF3 = 0xFC;
     float yaw_torque;
-    uint8_t SOF4 = 0xFD;
     float pitch_angle;
-    uint8_t SOF5 = 0xFE;
     float pitch_omega;
-    uint8_t SOF6 = 0xFF;
     float pitch_torque;
 };
+constexpr uint8_t AUTOAIM_ANGLE_ID    = 0xFA;
+constexpr uint8_t AUTOAIM_OMEGA_ID    = 0xFB;
+constexpr uint8_t AUTOAIM_TORQUE_ID   = 0xFC;
 
 struct McuImuData
 {
-    uint8_t start_of_yaw_frame;
-    uint8_t start_of_pitch_frame;
-    uint8_t yaw_total_angle[4];
     float yaw_total_angle_f;
-    uint8_t pitch[4];
     float pitch_f;
 };
+constexpr uint8_t IMU_INFO_ID    = 0xAE;
 
 class McuComm
 {
 public:
 
     volatile McuCommData mcu_comm_data_ = {
-            0xAB,
             127,
             127,
             127,
@@ -85,47 +78,40 @@ public:
             CHASSIS_SPIN_DISABLE,
             0,
     };
+
     McuSendData mcu_send_data_ = {
-            0x0A,
             0.0f,
-            0x0B,
             0.0f,
-            0x0C,
             0.0f,
-            0x0D,
             0.0f,
     };
 
     McuAutoaimData mcu_autoaim_data_ = {
-            0xFA,
             0.0f,
-            0xFB,
             0.0f,
-            0xFC,
             0.0f,
-            0xFD,
             0.0f,
-            0xFE,
             0.0f,
-            0xFF,
             0.0f,
     };
+
     McuImuData mcu_imu_data_ = {
-            0xAE,
-            0xAF,
-            {0x00,0x00,0x00,0x00},
             0,
-            {0x00,0x00,0x00,0x00},
             0,
     };
 
-    void Init(FDCAN_HandleTypeDef *hcan,
-              uint8_t can_rx_id,
-              uint8_t can_tx_id
-              );
+    void Init(
+        FDCAN_HandleTypeDef *hcan,
+        uint8_t can_rx_id,
+        uint8_t can_tx_id
+    );
 
-    void CanRxCpltCallback(uint8_t *rx_data);
-
+    void CanRemoteControlRxCpltCallback(uint8_t *rx_data);
+    void CanAutoAimAngleRxCpltCallback(uint8_t *rx_data);
+    void CanAutoAimOmegaRxCpltCallback(uint8_t *rx_data);
+    void CanAutoAimTorqueRxCpltCallback(uint8_t *rx_data);
+    void CanImuInfoRxCpltCallback(uint8_t *rx_data);
+    
     void CanSendCommand();
 
     void Task();
@@ -142,7 +128,7 @@ protected:
     // 内部函数
     void DataProcess();
 
-        // FreeRTOS 入口，静态函数
+    // FreeRTOS 入口，静态函数
     static void TaskEntry(void *param);
 };
 

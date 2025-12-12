@@ -4,6 +4,7 @@
 
 #include "Init.h"
 #include "Robot.h"
+#include "dvc_mcu_comm.h"
 
 Robot robot;
 
@@ -40,6 +41,7 @@ void can1_callback(CanRxBuffer *CAN_RxMessage)
         break;
     }
 }
+
 /**
  * @brief CAN2回调函数
  *
@@ -49,9 +51,29 @@ void can2_callback(CanRxBuffer *CAN_RxMessage)
 {
     switch (CAN_RxMessage->header.Identifier)
     {
-        case (0x01):
+        case (AUTOAIM_ANGLE_ID):
         {
-            robot.mcu_comm_.CanRxCpltCallback(CAN_RxMessage->data);
+            robot.mcu_comm_.CanAutoAimAngleRxCpltCallback(CAN_RxMessage->data);
+            break;
+        }
+        case (AUTOAIM_OMEGA_ID):
+        {
+            robot.mcu_comm_.CanAutoAimOmegaRxCpltCallback(CAN_RxMessage->data);
+            break;
+        }
+        case (AUTOAIM_TORQUE_ID):
+        {
+            robot.mcu_comm_.CanAutoAimTorqueRxCpltCallback(CAN_RxMessage->data);
+            break;
+        }
+        case (REMOTE_CONTROL_ID):
+        {
+            robot.mcu_comm_.CanRemoteControlRxCpltCallback(CAN_RxMessage->data);
+            break;
+        }
+        case (IMU_INFO_ID):
+        {
+            robot.mcu_comm_.CanImuInfoRxCpltCallback(CAN_RxMessage->data);
             break;
         }
         default:
