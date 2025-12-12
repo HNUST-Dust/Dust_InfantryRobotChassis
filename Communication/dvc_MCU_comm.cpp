@@ -64,7 +64,7 @@ void McuComm::CanSendCommand()
      can_tx_frame[7] = conv.b[3];
 
      // 发送第1帧（8字节）
-     can_send_data(can_manage_object_->can_handler, YAW_INFO_ID, can_tx_frame, 8);
+     fdcan_send_data(can_manage_object_->can_handler, YAW_INFO_ID, can_tx_frame, 8);
 
      // ---- 第2帧：pitch_angle 的4个字节和 pitch_omega 的4个字节 ----
      conv.f = mcu_send_data_.pitch_angle;
@@ -80,7 +80,7 @@ void McuComm::CanSendCommand()
      can_tx_frame[7] = conv.b[3];
 
      // 发送第2帧（8字节）
-     can_send_data(can_manage_object_->can_handler, PITCH_INFO_ID, can_tx_frame, 8);
+     fdcan_send_data(can_manage_object_->can_handler, PITCH_INFO_ID, can_tx_frame, 8);
 }
 
 void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {

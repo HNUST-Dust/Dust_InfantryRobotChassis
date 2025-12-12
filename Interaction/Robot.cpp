@@ -114,7 +114,6 @@ void Robot::Task()
         chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPEED / 128.0f));
         chassis_.SetYawAngle(-normalize_angle_pm_pi(gimbal_.GetNowYawAngle()/YAW_GEAR_RATIO));
     
-
         /********************** 模式切换 ***********************/   
         switch(mcu_comm_data_local.chassis_spin)
         {
@@ -152,7 +151,7 @@ void Robot::Task()
         mcu_comm_.mcu_send_data_.yaw_angle = -gimbal_.GetYawNowAngleNoncumulative();
         // mcu_comm_.mcu_send_data_.pitch = -gimbal_.GetPitchNowAngleNoncumulative();
         mcu_comm_.mcu_send_data_.pitch_angle = 0.f;
-        // mcu_comm_.CanSendCommand();
+        mcu_comm_.CanSendCommand();
 
         
         /********************** 超级电容 ***********************/   

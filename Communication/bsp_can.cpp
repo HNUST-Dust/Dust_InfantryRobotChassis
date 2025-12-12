@@ -136,6 +136,28 @@ uint8_t can_send_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, uin
     UNUSED(used_mailbox); // 避免未使用变量警告
     return HAL_FDCAN_AddMessageToTxFifoQ(hcan, &tx_header, data);
 }
+
+uint8_t fdcan_send_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, uint16_t length)
+{
+    FDCAN_TxHeaderTypeDef tx_header;
+    uint32_t used_mailbox;
+
+    //检测传参是否正确
+    assert_param(hcan != NULL);
+
+    tx_header.Identifier            = id;
+    tx_header.IdType                = FDCAN_STANDARD_ID;            // 标准ID
+    tx_header.TxFrameType           = FDCAN_DATA_FRAME;             // 数据帧
+    tx_header.DataLength            = length;                       // 数据长度，注意有些HAL可能用DLC编码，需要确认
+    tx_header.ErrorStateIndicator   = FDCAN_ESI_ACTIVE;             // 错误指示，默认正常
+    tx_header.BitRateSwitch         = FDCAN_BRS_ON;                 // 启用比特率切换
+    tx_header.FDFormat              = FDCAN_FD_CAN;                 // FD CAN格式
+    tx_header.TxEventFifoControl    = FDCAN_NO_TX_EVENTS;           // 不启用事件FIFO
+    tx_header.MessageMarker         = 0;                            // 消息标记为0
+    UNUSED(used_mailbox); // 避免未使用变量警告
+    return HAL_FDCAN_AddMessageToTxFifoQ(hcan, &tx_header, data);
+}
+
 void can_period_elapsed_callback()
 {
     // DJI电机专属
