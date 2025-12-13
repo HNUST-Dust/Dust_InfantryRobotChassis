@@ -5,9 +5,14 @@
 #include "Init.h"
 #include "Robot.h"
 #include "dvc_mcu_comm.h"
+#include "bsp_usart.h"
 
 Robot robot;
 
+void uart7_debug_callback(uint8_t *buffer, uint16_t length)
+{
+    robot.debug_tools_.VofaReceiveCallback(buffer, length);
+}
 /**
  * @brief CAN1回调函数
  *
@@ -100,8 +105,11 @@ void can3_callback(CanRxBuffer *CAN_RxMessage)
     }
 }
 
+
 void Init()
 {
+    // USART7 初始化，调试
+    uart_init(&huart7, uart7_debug_callback, UART_BUFFER_SIZE);
     // CAN1 初始化，控制底盘
     can_init(&hfdcan1,can1_callback);
     // CAN2 初始化，与上板通讯

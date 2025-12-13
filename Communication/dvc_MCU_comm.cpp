@@ -18,13 +18,13 @@ void McuComm::Init(
 
      can_rx_id_ = can_rx_id;
      can_tx_id_ = can_tx_id;
-     static const osThreadAttr_t kMcuCommTaskAttr = {
-          .name = "mcu_comm_task",
-          .stack_size = 512,
-          .priority = (osPriority_t) osPriorityNormal
-     };
-     // 启动任务，将 this 传入
-     osThreadNew(McuComm::TaskEntry, this, &kMcuCommTaskAttr);
+     // static const osThreadAttr_t kMcuCommTaskAttr = {
+     //      .name = "mcu_comm_task",
+     //      .stack_size = 512,
+     //      .priority = (osPriority_t) osPriorityNormal
+     // };
+     // // 启动任务，将 this 传入
+     // osThreadNew(McuComm::TaskEntry, this, &kMcuCommTaskAttr);
 }
 
 // 任务入口（静态函数）—— osThreadNew 需要这个原型
@@ -38,7 +38,8 @@ void McuComm::Task()
 {
      struct McuCommData mcu_comm_data_local;
      for (;;)
-     {    // 用临界区一次性复制，避免撕裂
+     {
+          // 用临界区一次性复制，避免撕裂
           // __disable_irq();
           // mcu_comm_data__Local = *const_cast<const struct McuCommData*>(&(mcu_comm_data_));
           // __enable_irq();

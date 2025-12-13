@@ -7,7 +7,7 @@
 #include "cmsis_os.h"
 
 void DebugTools::VofaInit(){
-    uart_init(&huart7, nullptr, UART_BUFFER_SIZE);
+
 }
 
 void DebugTools::VofaSendFloat(float data)
@@ -35,5 +35,10 @@ void DebugTools::VofaSendTail()
     g_uart7_manage_object.tx_cplt_flag = false;
     HAL_UART_Transmit_DMA(g_uart7_manage_object.uart_handler, tail, 4*sizeof(uint8_t));
     // taskEXIT_CRITICAL();
+
+}
+
+void DebugTools::VofaReceiveCallback(uint8_t *buffer, uint16_t length)
+{
 
 }
