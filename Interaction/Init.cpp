@@ -51,19 +51,9 @@ void can2_callback(CanRxBuffer *CAN_RxMessage)
 {
     switch (CAN_RxMessage->header.Identifier)
     {
-        case (AUTOAIM_ANGLE_ID):
+        case (AUTOAIM_INFO_ID):
         {
-            robot.mcu_comm_.CanAutoAimAngleRxCpltCallback(CAN_RxMessage->data);
-            break;
-        }
-        case (AUTOAIM_OMEGA_ID):
-        {
-            robot.mcu_comm_.CanAutoAimOmegaRxCpltCallback(CAN_RxMessage->data);
-            break;
-        }
-        case (AUTOAIM_TORQUE_ID):
-        {
-            robot.mcu_comm_.CanAutoAimTorqueRxCpltCallback(CAN_RxMessage->data);
+            robot.mcu_comm_.CanAutoAimInfoRxCpltCallback(CAN_RxMessage->data);
             break;
         }
         case (REMOTE_CONTROL_ID):

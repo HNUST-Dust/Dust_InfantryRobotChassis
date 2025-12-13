@@ -43,7 +43,7 @@ extern "C"{
 struct CanRxBuffer
 {
     FDCAN_RxHeaderTypeDef header;
-    uint8_t data[8];
+    uint8_t data[64];
 };
 
 /**

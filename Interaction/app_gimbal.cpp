@@ -184,8 +184,6 @@ void Gimbal::SelfResolution()
     now_pitch_angle_ = motor_pitch_.GetNowAngle();
     pitch_now_angle_noncumulative_ = motor_pitch_.GetNowAngleNoncumulative();
 
-#ifdef YAW_ENCODER_MODE
-    
     now_yaw_angle_   = motor_yaw_.GetNowAngle();
 
     // 过零处理
@@ -197,12 +195,7 @@ void Gimbal::SelfResolution()
         yaw_relative_zero_angle_ = get_relative_angle_pm_pi(now_yaw_angle_, yaw_zero_angle_);
     }
     yaw_now_angle_noncumulative_ = motor_yaw_.GetNowAngleNoncumulative();
-    
-#endif
 
-#ifdef YAW_IMU_MODE
-    now_yaw_angle_ = imu_yaw_angle_;
-#endif 
 
     now_pitch_omega_ = motor_pitch_.GetNowOmega();
     now_yaw_omega_   = motor_yaw_.GetNowOmega();

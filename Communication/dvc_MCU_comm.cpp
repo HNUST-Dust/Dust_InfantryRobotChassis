@@ -47,7 +47,7 @@ void McuComm::Task()
 }
 void McuComm::CanSendCommand()
 {
-     static uint8_t can_tx_frame[8];
+     static uint8_t can_tx_frame[16];
      // 把 float 转换成字节
      union { float f; uint8_t b[4]; } conv;
      // ---- 第1帧：yaw_angle 的4个字节和 yaw_omega 的4个字节 ----
@@ -63,24 +63,21 @@ void McuComm::CanSendCommand()
      can_tx_frame[6] = conv.b[2];
      can_tx_frame[7] = conv.b[3];
 
-     // 发送第1帧（8字节）
-     fdcan_send_data(can_manage_object_->can_handler, YAW_INFO_ID, can_tx_frame, 8);
-
      // ---- 第2帧：pitch_angle 的4个字节和 pitch_omega 的4个字节 ----
      conv.f = mcu_send_data_.pitch_angle;
-     can_tx_frame[0] = conv.b[0];
-     can_tx_frame[1] = conv.b[1];
-     can_tx_frame[2] = conv.b[2];
-     can_tx_frame[3] = conv.b[3];
+     can_tx_frame[8] = conv.b[0];
+     can_tx_frame[9] = conv.b[1];
+     can_tx_frame[10] = conv.b[2];
+     can_tx_frame[11] = conv.b[3];
 
      conv.f = mcu_send_data_.pitch_omega;
-     can_tx_frame[4] = conv.b[0];
-     can_tx_frame[5] = conv.b[1];
-     can_tx_frame[6] = conv.b[2];
-     can_tx_frame[7] = conv.b[3];
+     can_tx_frame[12] = conv.b[0];
+     can_tx_frame[13] = conv.b[1];
+     can_tx_frame[14] = conv.b[2];
+     can_tx_frame[15] = conv.b[3];
 
      // 发送第2帧（8字节）
-     fdcan_send_data(can_manage_object_->can_handler, PITCH_INFO_ID, can_tx_frame, 8);
+     fdcan_send_data(can_manage_object_->can_handler, GIMBAL_INFO_ID, can_tx_frame, 16);
 }
 
 void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {
@@ -107,19 +104,15 @@ void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {
      mcu_comm_data_.supercap             = rx_data[6];
 }
 
-void McuComm::CanAutoAimAngleRxCpltCallback(uint8_t* rx_data) {
+void McuComm::CanAutoAimInfoRxCpltCallback(uint8_t* rx_data) {
      memcpy(&mcu_autoaim_data_.yaw_angle,&rx_data[0],4 * sizeof(uint8_t));
      memcpy(&mcu_autoaim_data_.pitch_angle,&rx_data[4],4 * sizeof(uint8_t));
-}
-
-void McuComm::CanAutoAimOmegaRxCpltCallback(uint8_t* rx_data) {
-     memcpy(&mcu_autoaim_data_.yaw_omega,&rx_data[0],4 * sizeof(uint8_t));
-     memcpy(&mcu_autoaim_data_.pitch_omega,&rx_data[4],4 * sizeof(uint8_t));
-}
-
-void McuComm::CanAutoAimTorqueRxCpltCallback(uint8_t* rx_data) {
-     memcpy(&mcu_autoaim_data_.yaw_torque,&rx_data[0],4 * sizeof(uint8_t));
-     memcpy(&mcu_autoaim_data_.pitch_torque,&rx_data[4],4 * sizeof(uint8_t));
+     
+     memcpy(&mcu_autoaim_data_.yaw_omega,&rx_data[8],4 * sizeof(uint8_t));
+     memcpy(&mcu_autoaim_data_.pitch_omega,&rx_data[12],4 * sizeof(uint8_t));
+     
+     memcpy(&mcu_autoaim_data_.yaw_torque,&rx_data[16],4 * sizeof(uint8_t));
+     memcpy(&mcu_autoaim_data_.pitch_torque,&rx_data[20],4 * sizeof(uint8_t));
 }
 
 void McuComm::CanImuInfoRxCpltCallback(uint8_t* rx_data) {

@@ -41,9 +41,7 @@ struct McuSendData
     float pitch_angle; 
     float pitch_omega; 
 };
-constexpr uint16_t YAW_INFO_ID      = 0x0A;
-constexpr uint16_t PITCH_INFO_ID    = 0x0B;
-
+constexpr uint16_t GIMBAL_INFO_ID      = 0x0A;
 
 struct McuAutoaimData
 {
@@ -54,9 +52,7 @@ struct McuAutoaimData
     float pitch_omega;
     float pitch_torque;
 };
-constexpr uint8_t AUTOAIM_ANGLE_ID    = 0xFA;
-constexpr uint8_t AUTOAIM_OMEGA_ID    = 0xFB;
-constexpr uint8_t AUTOAIM_TORQUE_ID   = 0xFC;
+constexpr uint8_t AUTOAIM_INFO_ID    = 0xFA;
 
 struct McuImuData
 {
@@ -107,9 +103,7 @@ public:
     );
 
     void CanRemoteControlRxCpltCallback(uint8_t *rx_data);
-    void CanAutoAimAngleRxCpltCallback(uint8_t *rx_data);
-    void CanAutoAimOmegaRxCpltCallback(uint8_t *rx_data);
-    void CanAutoAimTorqueRxCpltCallback(uint8_t *rx_data);
+    void CanAutoAimInfoRxCpltCallback(uint8_t *rx_data);
     void CanImuInfoRxCpltCallback(uint8_t *rx_data);
     
     void CanSendCommand();

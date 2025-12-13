@@ -42,7 +42,7 @@
             "svdFile": "${workspaceRoot}/Board/dm-h723/STM32H723.svd",
             "servertype": "openocd",
             "configFiles": [
-                "openocd_dap.cfg",
+                "${workspaceRoot}/Board/dm-h723/config/openocd_dap.cfg",
             ],
         },
         {

@@ -94,9 +94,9 @@ void MX_FDCAN2_Init(void)
   hfdcan2.Init.TransmitPause = DISABLE;
   hfdcan2.Init.ProtocolException = DISABLE;
   hfdcan2.Init.NominalPrescaler = 2;
-  hfdcan2.Init.NominalSyncJumpWidth = 18;
-  hfdcan2.Init.NominalTimeSeg1 = 56;
-  hfdcan2.Init.NominalTimeSeg2 = 18;
+  hfdcan2.Init.NominalSyncJumpWidth = 14;
+  hfdcan2.Init.NominalTimeSeg1 = 55;
+  hfdcan2.Init.NominalTimeSeg2 = 19;
   hfdcan2.Init.DataPrescaler = 3;
   hfdcan2.Init.DataSyncJumpWidth = 5;
   hfdcan2.Init.DataTimeSeg1 = 14;

@@ -148,7 +148,30 @@ uint8_t fdcan_send_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, u
     tx_header.Identifier            = id;
     tx_header.IdType                = FDCAN_STANDARD_ID;            // 标准ID
     tx_header.TxFrameType           = FDCAN_DATA_FRAME;             // 数据帧
-    tx_header.DataLength            = length;                       // 数据长度，注意有些HAL可能用DLC编码，需要确认
+    if(length <= 8){
+        tx_header.DataLength        = length;                       
+    }
+    if(length == 12){
+        tx_header.DataLength        = FDCAN_DLC_BYTES_12;          
+    }
+    if(length == 16){
+        tx_header.DataLength        = FDCAN_DLC_BYTES_16;          
+    }
+    if(length == 20){
+        tx_header.DataLength        = FDCAN_DLC_BYTES_20;          
+    }
+    if(length == 24){
+        tx_header.DataLength        = FDCAN_DLC_BYTES_24;          
+    }
+    if(length == 32){
+        tx_header.DataLength        = FDCAN_DLC_BYTES_32;          
+    }
+    if(length == 48){
+        tx_header.DataLength        = FDCAN_DLC_BYTES_48;          
+    }
+    if(length == 64){
+        tx_header.DataLength        = FDCAN_DLC_BYTES_64;          
+    }
     tx_header.ErrorStateIndicator   = FDCAN_ESI_ACTIVE;             // 错误指示，默认正常
     tx_header.BitRateSwitch         = FDCAN_BRS_ON;                 // 启用比特率切换
     tx_header.FDFormat              = FDCAN_FD_CAN;                 // FD CAN格式
