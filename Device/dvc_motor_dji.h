@@ -192,7 +192,7 @@ protected:
     // 发送缓存区
     uint8_t *tx_data_;
     // 减速比, 默认带减速箱
-    float gearbox_rate_;
+    float gearbox_rate_ = 268.0f / 17.0f;
     // 是否开启功率控制
     MotorDjiPowerLimitStatus power_limit_status_;
     // 最大电流
@@ -228,7 +228,7 @@ protected:
     // 电机状态
     MotorDjiStatus motor_dji_status_ = MOTOR_DJI_STATUS_DISABLE;
     // 电机对外接口信息
-    MotorDjiRxData rx_data_;
+    MotorDjiRxData rx_data_ = {0.f,0.f,0.f,0.f,0.f,0,0,0};
     // 下一时刻的功率估计值, W
     float power_estimate_;
 

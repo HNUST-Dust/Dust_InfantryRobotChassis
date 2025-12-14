@@ -5,7 +5,7 @@
 void McuComm::Init(
      FDCAN_HandleTypeDef* hcan,
      uint8_t can_rx_id,
-     uint8_t can_tx_id)
+     uint8_t can_tx_id) 
 {
      if (hcan->Instance == FDCAN1)
      {
@@ -23,7 +23,7 @@ void McuComm::Init(
      //      .stack_size = 512,
      //      .priority = (osPriority_t) osPriorityNormal
      // };
-     // // 启动任务，将 this 传入
+     // //启动任务，将 this 传入
      // osThreadNew(McuComm::TaskEntry, this, &kMcuCommTaskAttr);
 }
 
@@ -34,8 +34,7 @@ void McuComm::TaskEntry(void *argument) {
 }
 
 // 实际任务逻辑
-void McuComm::Task()
-{
+void McuComm::Task() {
      struct McuCommData mcu_comm_data_local;
      for (;;)
      {
@@ -46,8 +45,10 @@ void McuComm::Task()
           // osDelay(pdMS_TO_TICKS(10));
      }
 }
-void McuComm::CanSendCommand()
-{
+
+
+void McuComm::CanSendCommand() {
+
      static uint8_t can_tx_frame[16];
      // 把 float 转换成字节
      union { float f; uint8_t b[4]; } conv;
@@ -82,6 +83,7 @@ void McuComm::CanSendCommand()
 }
 
 void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {
+
      mcu_comm_data_.yaw                  = rx_data[0];
      mcu_comm_data_.pitch_angle          = rx_data[1];
      mcu_comm_data_.chassis_speed_x      = rx_data[2];
@@ -108,10 +110,10 @@ void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {
 void McuComm::CanAutoAimInfoRxCpltCallback(uint8_t* rx_data) {
      memcpy(&mcu_autoaim_data_.yaw_angle,&rx_data[0],4 * sizeof(uint8_t));
      memcpy(&mcu_autoaim_data_.pitch_angle,&rx_data[4],4 * sizeof(uint8_t));
-     
+
      memcpy(&mcu_autoaim_data_.yaw_omega,&rx_data[8],4 * sizeof(uint8_t));
      memcpy(&mcu_autoaim_data_.pitch_omega,&rx_data[12],4 * sizeof(uint8_t));
-     
+
      memcpy(&mcu_autoaim_data_.yaw_torque,&rx_data[16],4 * sizeof(uint8_t));
      memcpy(&mcu_autoaim_data_.pitch_torque,&rx_data[20],4 * sizeof(uint8_t));
 }

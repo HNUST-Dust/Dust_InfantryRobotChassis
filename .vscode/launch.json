@@ -3,7 +3,7 @@
     "configurations": [
         // 使用dap-link(如无线调试器时的参考配置)
         {
-            "name": "DAPlink",
+            "name": "DAPlink-launch",
             "cwd": "${workspaceRoot}",
             "executable": "${workspaceRoot}/build/Dust_InfantryRobotChassis.elf",
             "request": "launch",
@@ -15,6 +15,11 @@
                 "${workspaceRoot}/Board/dm-h723/config/openocd_dap.cfg",
             ],
             "runToEntryPoint": "main",
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4
+            },
+            "rtos": "FreeRTOS",
         },
         // 使用j-link进行调试时的参考配置
         {
@@ -44,6 +49,11 @@
             "configFiles": [
                 "${workspaceRoot}/Board/dm-h723/config/openocd_dap.cfg",
             ],
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4
+            },
+            "rtos": "FreeRTOS",
         },
         {
             "name": "Jlink-attach",

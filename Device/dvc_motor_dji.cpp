@@ -12,6 +12,7 @@
 
 #include "dvc_motor_dji.h"
 #include "arm_math.h"
+#include "alg_math.h"
 /* Private macros ------------------------------------------------------------*/
 
 /* Private types -------------------------------------------------------------*/
