@@ -41,10 +41,7 @@ jobs:
         run: |
           BUILD_DIR="build"
           rm -rf "${BUILD_DIR}"
-          cmake -S . -B "${BUILD_DIR}" -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/cmake/toolchain-arm-none-eabi.cmake" \
-            -DBOARD="${BOARD}" \
-            -DFIRMWARE="${FIRMWARE}"
+          cmake -S . -B "${BUILD_DIR}" -G Ninja
 
       - name: Build
         run: |
