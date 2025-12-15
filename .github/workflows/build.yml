@@ -1,4 +1,4 @@
-name: CI - Build Multi-Board Multi-Firmware
+name: CI - Build
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
     env:
       BOARD: dm-h723
       FIRMWARE: Dust_InfantryRobotChassis
-    name: Build ${{ env.BOARD }} - ${{ env.FIRMWARE }}
+    name: Build
     steps:
       - name: Checkout
         uses: actions/checkout@v4
