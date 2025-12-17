@@ -149,8 +149,8 @@ void Robot::Task()
                                    - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
         }
         
-        // virtual_yaw_angle_ =  gimbal_.GetYawNowAngleNoncumulative() - mcu_comm_.mcu_autoaim_data_.yaw_f;
-
+        virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
+                           - mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG;
         // 回传云台电机角度数据
         // mcu_comm_.mcu_send_data_.yaw = -yaw_err;
         mcu_comm_.mcu_send_data_.yaw_angle = -gimbal_.GetYawNowAngleNoncumulative();
