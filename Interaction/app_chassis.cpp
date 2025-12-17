@@ -2,7 +2,7 @@
 #include "FreeRTOS.h"
 #include "app_chassis.h"
 #include "ins_task.h"
-#include "bmi088driver.h"
+#include "BMI088driver.h"
 #include "imu.hpp"
 #include "cmsis_os.h"
 
