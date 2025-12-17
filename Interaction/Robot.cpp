@@ -95,7 +95,7 @@ void Robot::Task()
 
         /********************** 云台 ***********************/   
         virtual_yaw_angle_ += (mcu_comm_data_local.yaw - 127.0f)*YAW_SENSITIVITY_USED_IMU;
-        virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX_USE_IMU/128.0f);
+        // virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX_USE_IMU/128.0f);
         if (virtual_pitch_angle_ >= PITCH_RANGE_MAX_USE_IMU){
             virtual_pitch_angle_ = PITCH_RANGE_MAX_USE_IMU;
         }else if(virtual_pitch_angle_ <= -PITCH_RANGE_MAX_USE_IMU){
@@ -106,7 +106,6 @@ void Robot::Task()
         gimbal_.SetPitchImuAngle(mcu_comm_.mcu_imu_data_.pitch_f);
         gimbal_.SetVirtualYawAngle(virtual_yaw_angle_);
         gimbal_.SetVirtualPitchAngle(virtual_pitch_angle_);
-        // gimbal_.SetVirtualPitchAngle(0.f);        
 
         /********************** 底盘 ***********************/ 
         chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED / 128.0f); //9
@@ -141,16 +140,22 @@ void Robot::Task()
         /********************** mini PC ***********************/   
         if((fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) > 0.00f) && (fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) <0.3f)){
             // virtual_pitch_angle_ -= mcu_comm_.mcu_autoaim_data_.pitch_f;
-            // virtual_pitch_angle_ = mcu_comm_.mcu_autoaim_data_.pitch_f;
+            // virtual_pitch_angle_ -= mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
+            //  virtual_pitch_angle_ = - mcu_comm_.mcu_imu_data_.pitch_f * DEG_TO_RAD
+            //                         + mcu_comm_.mcu_autoaim_data_.pitch_angle;
+            // virtual_pitch_angle_ = - mcu_comm_.mcu_imu_data_.pitch_f
+            //         + mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
+            virtual_pitch_angle_ = - mcu_comm_.mcu_imu_data_.pitch_f
+                                   - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
         }
         
-        // virtual_yaw_angle_ =  gimbal_.GetYawNowAngleNoncumulative() - mcu_comm_.mcu_autoaim_data_.yaw_f;
-
+        virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
+                           - mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG;
         // 回传云台电机角度数据
         // mcu_comm_.mcu_send_data_.yaw = -yaw_err;
         mcu_comm_.mcu_send_data_.yaw_angle = -gimbal_.GetYawNowAngleNoncumulative();
-        // mcu_comm_.mcu_send_data_.pitch = -gimbal_.GetPitchNowAngleNoncumulative();
-        mcu_comm_.mcu_send_data_.pitch_angle = 0.f;
+        mcu_comm_.mcu_send_data_.pitch_angle = -gimbal_.GetPitchNowAngleNoncumulative();
+        // mcu_comm_.mcu_send_data_.pitch_angle = 0.f;
         mcu_comm_.CanSendCommand();
 
         
@@ -167,10 +172,10 @@ void Robot::Task()
         
  
         /********************** 调试信息 ***********************/   
-        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
+        debug_tools_.VofaSendFloat(- mcu_comm_.mcu_imu_data_.pitch_f * DEG_TO_RAD); 
         // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
-        // debug_tools_.VofaSendFloat(virtual_pitch_angle_);
+        debug_tools_.VofaSendFloat(virtual_pitch_angle_);
         // debug_tools_.VofaSendFloat(gimbal_.GetPitchNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(gimbal_.GetNowPitchOmega());
         // debug_tools_.VofaSendFloat(gimbal_.GetNowPitchTorque());

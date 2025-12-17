@@ -43,9 +43,9 @@ void Gimbal::Init()
 #ifdef YAW_IMU_MODE
      //yaw轴角度环PID初始化
     yaw_angle_pid_.Init(
-        1.40f,
-        1.4f,
-        0.60f,
+        0.8f,
+        0.6f,
+        0.085f,
         0.0f,
         44.0f,
         44.0f,
@@ -96,9 +96,9 @@ void Gimbal::Init()
 #endif
     //yaw轴速度环PID初始化
     yaw_omega_pid_.Init(
-        0.06f,
+        0.08f,
         0.008f,
-        0.00011f,
+        0.00008f,
         0.1f,
         3.0f,
         9.9f,
