@@ -15,7 +15,7 @@
 #include "app_chassis.h"
 #include "alg_math.h"
 // module
-#include "dvc_mcu_comm.h"
+#include "dvc_MCU_comm.h"
 #include "debug_tools.h"
 
 // bsp

@@ -5,7 +5,7 @@
 #include "app_gimbal.h"
 #include "user_lib.h"
 // module
-#include "dvc_mcu_comm.h"
+#include "dvc_MCU_comm.h"
 #include "supercap.h"
 #include "debug_tools.h"
 
