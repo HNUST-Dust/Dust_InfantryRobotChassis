@@ -96,7 +96,7 @@ void Robot::Task()
         }
 
         /********************** 云台 ***********************/   
-        virtual_yaw_angle_ += (mcu_comm_data_local.yaw - 127.0f)*YAW_SENSITIVITY_USED_IMU;
+        virtual_yaw_angle_ += (127.0f - mcu_comm_data_local.yaw )*YAW_SENSITIVITY_USED_IMU;
         // virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX_USE_IMU/128.0f);
         if (virtual_pitch_angle_ >= PITCH_RANGE_MAX_USE_IMU){
             virtual_pitch_angle_ = PITCH_RANGE_MAX_USE_IMU;
