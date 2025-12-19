@@ -156,7 +156,7 @@ void Robot::Task()
         mcu_comm_.mcu_send_data_.yaw_angle = -gimbal_.GetYawNowAngleNoncumulative();
         mcu_comm_.mcu_send_data_.pitch_angle = -gimbal_.GetPitchNowAngleNoncumulative();
         // mcu_comm_.mcu_send_data_.pitch_angle = 0.f;
-        mcu_comm_.CanSendCommand();
+        // mcu_comm_.CanSendCommand();
 
         
         /********************** 超级电容 ***********************/   
