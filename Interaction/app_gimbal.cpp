@@ -43,9 +43,9 @@ void Gimbal::Init()
 #ifdef YAW_IMU_MODE
      //yaw轴角度环PID初始化
     yaw_angle_pid_.Init(
-        1.6f,
-        0.09f,
-        0.025f,
+        0.5f,
+        0.01f,
+        0.12f,
         1.0f,
         44.0f,
         44.0f,
@@ -96,9 +96,9 @@ void Gimbal::Init()
 #endif
     //yaw轴速度环PID初始化
     yaw_omega_pid_.Init(
-        0.08f,
-        0.008f,
-        0.00008f,
+        0.1f,
+        0.1f,
+        0.0f,
         0.1f,
         3.0f,
         9.9f,
@@ -223,8 +223,8 @@ void Gimbal::SelfResolution()
 #endif
     // yaw轴速度环
     yaw_omega_pid_.SetTarget(GetTargetYawOmega());
-    float filtered_omega = yaw_omega_filter_.Update(GetNowYawOmega());
-    yaw_omega_pid_.SetNow(filtered_omega);
+    // float filtered_omega = yaw_omega_filter_.Update(GetNowYawOmega());
+    yaw_omega_pid_.SetNow(-imu_yaw_omega_);
     yaw_omega_pid_.CalculatePeriodElapsedCallback();
 
     // pitch轴角度环

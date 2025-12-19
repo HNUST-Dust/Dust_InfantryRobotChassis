@@ -105,6 +105,7 @@ void Robot::Task()
         }
 
         gimbal_.SetYawImuAngle(mcu_comm_.mcu_imu_data_.yaw_total_angle_f);
+        gimbal_.SetYawImuOmega(mcu_comm_.mcu_imu_data_.yaw_omega_f);
         gimbal_.SetPitchImuAngle(mcu_comm_.mcu_imu_data_.pitch_f);
         gimbal_.SetVirtualYawAngle(virtual_yaw_angle_);
         gimbal_.SetVirtualPitchAngle(virtual_pitch_angle_);
@@ -145,13 +146,14 @@ void Robot::Task()
                                    - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
         }
         // minipc_recive_yaw_integrate += minipc_recive_filter_.GetOutput();
-        minipc_division ++;
-        while (minipc_division == 10){
-            minipc_recive_filter_.Update(mcu_comm_.mcu_autoaim_data_.yaw_angle);
-            virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
-                               + (minipc_recive_filter_.GetOutput() * RAD_TO_DEG);
-            minipc_division = 0;
-        }
+        
+        // minipc_division ++;
+        // while (minipc_division == 10){
+        //     minipc_recive_filter_.Update(mcu_comm_.mcu_autoaim_data_.yaw_angle);
+        //     virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
+        //                        + (minipc_recive_filter_.GetOutput() * RAD_TO_DEG);
+        //     minipc_division = 0;
+        // }
         
         /********************** 超级电容 ***********************/   
         if(mcu_comm_data_local.supercap == 0){

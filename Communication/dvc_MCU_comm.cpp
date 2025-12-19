@@ -121,4 +121,5 @@ void McuComm::CanAutoAimInfoRxCpltCallback(uint8_t* rx_data) {
 void McuComm::CanImuInfoRxCpltCallback(uint8_t* rx_data) {
      memcpy(&mcu_imu_data_.yaw_total_angle_f,&rx_data[0],4 * sizeof(uint8_t));
      memcpy(&mcu_imu_data_.pitch_f,&rx_data[4],4 * sizeof(uint8_t));
+     memcpy(&mcu_imu_data_.yaw_omega_f,&rx_data[8],4 * sizeof(uint8_t));
 }
