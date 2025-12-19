@@ -6,8 +6,10 @@
             "type": "shell",
             "command": "openocd",
             "args": [
-                "-f", "${workspaceRoot}/Board/dm-h723/config/openocd_dap.cfg",
-                "-c", "program build/Dust_InfantryRobotChassis.bin verify reset exit 0x08000000"
+                "-f",
+                "${workspaceRoot}/Board/dm-h723/config/openocd_dap.cfg",
+                "-c",
+                "program build/Dust_InfantryRobotChassis.bin verify reset exit 0x08000000"
             ],
             "problemMatcher": []
         },
@@ -25,7 +27,9 @@
             "options": {
                 "cwd": "${workspaceFolder}"
             },
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "group": {
                 "kind": "build",
                 "isDefault": false

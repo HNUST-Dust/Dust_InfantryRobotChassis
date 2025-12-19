@@ -4,6 +4,7 @@
 #include "app_chassis.h"
 #include "app_gimbal.h"
 #include "user_lib.h"
+#include "low_pass_filter.hpp"
 // module
 #include "dvc_MCU_comm.h"
 #include "supercap.h"
@@ -46,6 +47,7 @@ public:
     // 底盘小陀螺斜坡规划器
     float ramp_temp = 0.0f;
     ramp_function_source_t chassis_spin_ramp_source;
+    LowPassFilter minipc_recive_filter_;
 
     // 云台
     Gimbal  gimbal_;
