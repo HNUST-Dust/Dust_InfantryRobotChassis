@@ -85,6 +85,7 @@ void Robot::Task()
     uint8_t first_flag = 0;
     float minipc_recive_yaw_integrate = 0;
     int minipc_division = 0;
+    float remote_value = 0.0f;
     for (;;)
     {
         __disable_irq();
@@ -96,18 +97,14 @@ void Robot::Task()
         }
 
         /********************** 云台 ***********************/   
-        virtual_yaw_angle_ += (127.0f - mcu_comm_data_local.yaw )*YAW_SENSITIVITY_USED_IMU;
-        // virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX_USE_IMU/128.0f);
-        if (virtual_pitch_angle_ >= PITCH_RANGE_MAX_USE_IMU){
-            virtual_pitch_angle_ = PITCH_RANGE_MAX_USE_IMU;
-        }else if(virtual_pitch_angle_ <= -PITCH_RANGE_MAX_USE_IMU){
-            virtual_pitch_angle_ = -PITCH_RANGE_MAX_USE_IMU;
-        }
+        remote_value = (127.0f - mcu_comm_data_local.yaw) * YAW_SPEED_SENSITIVITY;
 
         gimbal_.SetYawImuAngle(mcu_comm_.mcu_imu_data_.yaw_total_angle_f);
         gimbal_.SetPitchImuAngle(mcu_comm_.mcu_imu_data_.pitch_f);
-        gimbal_.SetVirtualYawAngle(virtual_yaw_angle_);
-        gimbal_.SetVirtualPitchAngle(virtual_pitch_angle_);
+        gimbal_.SetYawImuOmega(mcu_comm_.mcu_imu_data_.yaw_omega_f);
+        gimbal_.SetTargetYawOmega(remote_value);
+        
+        gimbal_.SetVirtualPitchAngle(0.0f);
 
         /********************** 底盘 ***********************/ 
         chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED / 128.0f); //9
@@ -144,14 +141,7 @@ void Robot::Task()
             virtual_pitch_angle_ = - mcu_comm_.mcu_imu_data_.pitch_f
                                    - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
         }
-        // minipc_recive_yaw_integrate += minipc_recive_filter_.GetOutput();
-        minipc_division ++;
-        while (minipc_division == 10){
-            minipc_recive_filter_.Update(mcu_comm_.mcu_autoaim_data_.yaw_angle);
-            virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
-                               + (minipc_recive_filter_.GetOutput() * RAD_TO_DEG);
-            minipc_division = 0;
-        }
+
         
         /********************** 超级电容 ***********************/   
         if(mcu_comm_data_local.supercap == 0){
@@ -165,9 +155,8 @@ void Robot::Task()
         supercap_.SetChargePower(50);
  
         /********************** 调试信息 ***********************/   
-        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
-        debug_tools_.VofaSendFloat(minipc_recive_filter_.GetOutput() * RAD_TO_DEG);
-        debug_tools_.VofaSendFloat(virtual_yaw_angle_);
+        debug_tools_.VofaSendFloat(-mcu_comm_.mcu_imu_data_.yaw_omega_f); 
+        debug_tools_.VofaSendFloat(remote_value);
         // 调试帧尾部
         debug_tools_.VofaSendTail();
 

@@ -166,6 +166,11 @@ public:
         imu_yaw_angle_ = imu_yaw_angle;
     }
 
+    inline void SetYawImuOmega(float imu_yaw_omega)
+    {
+        imu_yaw_omega_ = imu_yaw_omega;
+    }
+
     inline void SetPitchImuAngle(float imu_pitch_angle)
     {
         imu_pitch_angle_ = imu_pitch_angle;
@@ -240,6 +245,8 @@ protected:
 
     // yaw imu角度
     float imu_yaw_angle_ = 0.0f;
+    // yaw imu 角速度
+    float imu_yaw_omega_ = 0.0f;
     // pitch imu角度
     float imu_pitch_angle_ = 0.0f;
 

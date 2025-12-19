@@ -12,7 +12,7 @@
 
 #define YAW_SENSITIVITY                  0.00008F//0.00008
 #define YAW_SENSITIVITY_USED_IMU         0.00400F//0.00008
-#define YAW_SPEED_SENSITIVITY            0.05f
+#define YAW_SPEED_SENSITIVITY            0.345f
 #define PITCH_RANGE_MAX                  0.3f
 #define PITCH_RANGE_MAX_USE_IMU          10.0f
 

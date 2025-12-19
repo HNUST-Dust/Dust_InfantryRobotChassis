@@ -96,9 +96,9 @@ void Gimbal::Init()
 #endif
     //yaw轴速度环PID初始化
     yaw_omega_pid_.Init(
-        0.08f,
-        0.008f,
-        0.00008f,
+        0.10f,
+        0.1f,
+        0.00000f,
         0.1f,
         3.0f,
         9.9f,
@@ -203,27 +203,10 @@ void Gimbal::SelfResolution()
     now_pitch_torque_ = motor_pitch_.GetNowTorque();
     now_yaw_torque_ = motor_yaw_.GetNowTorque();
 
-    // yaw轴角度环
-#ifdef YAW_ENCODER_MODE
-    yaw_angle_pid_.SetTarget(0);
-    float yaw_err = CalcYawError(virtual_yaw_angle_, normalize_angle_pm_pi(GetNowYawAngle()/0.8f));
-    yaw_angle_pid_.SetNow(yaw_err);
-    yaw_angle_pid_.CalculatePeriodElapsedCallback();
-    if(yaw_control_type_ == GIMBAL_CONTROL_TYPE_ANGLE){
-        SetTargetYawOmega(-yaw_angle_pid_.GetOut());
-    }else if(yaw_control_type_ == GIMBAL_CONTROL_TYPE_OMEGA){
-        SetTargetYawOmega(GetTargetYawOmega() + GetYawOmegaFeedforword());
-    }
-#endif
-#ifdef YAW_IMU_MODE
-    yaw_angle_pid_.SetTarget(virtual_yaw_angle_);
-    yaw_angle_pid_.SetNow(imu_yaw_angle_);
-    yaw_angle_pid_.CalculatePeriodElapsedCallback();
-    SetTargetYawOmega(-yaw_angle_pid_.GetOut());
-#endif
+
     // yaw轴速度环
     yaw_omega_pid_.SetTarget(GetTargetYawOmega());
-    float filtered_omega = yaw_omega_filter_.Update(GetNowYawOmega());
+    float filtered_omega = yaw_omega_filter_.Update(-imu_yaw_omega_);
     yaw_omega_pid_.SetNow(filtered_omega);
     yaw_omega_pid_.CalculatePeriodElapsedCallback();
 

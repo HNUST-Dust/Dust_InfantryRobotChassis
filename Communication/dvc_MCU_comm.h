@@ -58,6 +58,7 @@ struct McuImuData
 {
     float yaw_total_angle_f;
     float pitch_f;
+    float yaw_omega_f;
 };
 constexpr uint8_t IMU_INFO_ID    = 0xAE;
 
@@ -92,6 +93,7 @@ public:
     };
 
     McuImuData mcu_imu_data_ = {
+            0,
             0,
             0,
     };
