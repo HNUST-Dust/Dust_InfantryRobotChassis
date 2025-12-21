@@ -147,13 +147,14 @@ void Robot::Task()
         }
         // minipc_recive_yaw_integrate += minipc_recive_filter_.GetOutput();
         
-        // minipc_division ++;
-        // while (minipc_division == 10){
-        //     minipc_recive_filter_.Update(mcu_comm_.mcu_autoaim_data_.yaw_angle);
-        //     virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
-        //                        + (minipc_recive_filter_.GetOutput() * RAD_TO_DEG);
-        //     minipc_division = 0;
-        // }
+        minipc_division ++;
+        while (minipc_division == 10){
+            virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
+                               + (mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG);
+            minipc_recive_filter_.Update(virtual_yaw_angle_);
+            virtual_yaw_angle_ = minipc_recive_filter_.GetOutput();
+            minipc_division = 0;
+        }
         
         /********************** 超级电容 ***********************/   
         if(mcu_comm_data_local.supercap == 0){
@@ -168,7 +169,7 @@ void Robot::Task()
  
         /********************** 调试信息 ***********************/   
         debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
-        debug_tools_.VofaSendFloat(minipc_recive_filter_.GetOutput() * RAD_TO_DEG);
+        debug_tools_.VofaSendFloat(mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG);
         debug_tools_.VofaSendFloat(virtual_yaw_angle_);
         // 调试帧尾部
         debug_tools_.VofaSendTail();
