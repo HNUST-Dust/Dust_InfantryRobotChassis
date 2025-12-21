@@ -130,14 +130,14 @@ void Gimbal::Init()
     yaw_omega_filter_.Init(15.0f,0.001f);
     pitch_omega_filter_.Init(15.0f,0.001f);
 
+    motor_yaw_.CanSendSaveZero();
+    osDelay(pdMS_TO_TICKS(2000));
     motor_yaw_.CanSendClearError();
     motor_pitch_.CanSendClearError();
-    // osDelay(100);
-    // motor_yaw_.CanSendSaveZero();
     osDelay(100);
     motor_yaw_.CanSendEnter();
     motor_pitch_.CanSendEnter();
-    osDelay(1000);
+    osDelay(100);
 
     motor_yaw_.SetKp(0); //MIT模式kp
     motor_pitch_.SetKp(0);//26
