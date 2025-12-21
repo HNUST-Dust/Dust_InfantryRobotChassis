@@ -145,11 +145,10 @@ void Robot::Task()
             virtual_pitch_angle_ = - mcu_comm_.mcu_imu_data_.pitch_f
                                    - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
         }
-        // minipc_recive_yaw_integrate += minipc_recive_filter_.GetOutput();
         
         minipc_division ++;
         while (minipc_division == 10){
-            virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
+            virtual_yaw_angle_ = virtual_yaw_angle_
                                + (mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG);
             minipc_recive_filter_.Update(virtual_yaw_angle_);
             virtual_yaw_angle_ = minipc_recive_filter_.GetOutput();
