@@ -105,6 +105,7 @@ void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {
           break;
      }
      mcu_comm_data_.supercap             = rx_data[6];
+     mcu_comm_data_.auto_aim_flag        = rx_data[7];
 }
 
 void McuComm::CanAutoAimInfoRxCpltCallback(uint8_t* rx_data) {

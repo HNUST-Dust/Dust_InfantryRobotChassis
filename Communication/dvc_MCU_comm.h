@@ -31,6 +31,7 @@ struct McuCommData
     uint8_t         chassis_rotation = 127;                     // 自转：不转、顺时针转、逆时针转
     ChassisSpinMode chassis_spin     = CHASSIS_SPIN_DISABLE;    // 小陀螺：不转、顺时针转、逆时针转
     uint8_t         supercap         = SUPERCAP_STATUS_DISABLE; // 超级电容：充电、放电
+    uint8_t         auto_aim_flag    = 0;                       // 自瞄标志
 };
 constexpr uint8_t REMOTE_CONTROL_ID = 0xAB;
 
@@ -73,6 +74,7 @@ public:
             127,
             127,
             CHASSIS_SPIN_DISABLE,
+            0,
             0,
     };
 

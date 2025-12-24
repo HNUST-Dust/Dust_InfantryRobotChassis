@@ -86,7 +86,6 @@ void Robot::Task()
     float minipc_recive_yaw_integrate = 0;
     int minipc_division = 0;
 
-    
     float yaw_avg_buffer[10] = {0};
     uint8_t yaw_avg_index = 0;
     uint8_t yaw_avg_count = 0;
@@ -103,19 +102,9 @@ void Robot::Task()
 
         /********************** 云台 ***********************/   
         virtual_yaw_angle_ += (127.0f - mcu_comm_data_local.yaw )*YAW_SENSITIVITY_USED_IMU;
-        
-
-        // minipc_division ++;
-        // while (minipc_division == 10){
-        //     // minipc_recive_filter_.Update((virtual_yaw_angle_
-        //     //     + (mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG)));
-        //     // virtual_yaw_angle_ = minipc_recive_filter_.GetOutput();
-        //     virtual_yaw_angle_ = (virtual_yaw_angle_
-        //             + (mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG));
-        //     minipc_division = 0;
-        // }
-
-        // virtual_pitch_angle_ = (mcu_comm_data_local.pitch_angle - 127.0f)*(PITCH_RANGE_MAX_USE_IMU/128.0f);
+        if(mcu_comm_data_local.auto_aim_flag == 0) {
+            virtual_pitch_angle_ = (127.0f - mcu_comm_data_local.pitch_angle )*(PITCH_RANGE_MAX_USE_IMU/128.0f);
+        }
         if (virtual_pitch_angle_ >= PITCH_RANGE_MAX_USE_IMU){
             virtual_pitch_angle_ = PITCH_RANGE_MAX_USE_IMU;
         }else if(virtual_pitch_angle_ <= -PITCH_RANGE_MAX_USE_IMU){
@@ -157,36 +146,39 @@ void Robot::Task()
             break; 
         };
 
+        /********************** mini PC ***********************/  
+         
+        if(mcu_comm_data_local.auto_aim_flag == 1) {
+            if((fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) > 0.00f) && (fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) <0.3f)){
+                virtual_pitch_angle_ = - mcu_comm_.mcu_imu_data_.pitch_f
+                                       - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
+            }
 
-        /********************** mini PC ***********************/   
-        if((fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) > 0.00f) && (fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) <0.3f)){
-            virtual_pitch_angle_ = - mcu_comm_.mcu_imu_data_.pitch_f
-                                   - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
+            // minipc_division ++;
+            // while (minipc_division == 10){
+            //     virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
+            //                        + (mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG);
+            //     minipc_recive_filter_.Update(virtual_yaw_angle_);
+            //     virtual_yaw_angle_ = minipc_recive_filter_.GetOutput();
+            //     minipc_division = 0;
+            // }
+    
+            /* 每次更新叠加自瞄角 */
+            float current_yaw = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
+                + mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG;
+    
+            /* 滑动平均 */
+            yaw_avg_sum -= yaw_avg_buffer[yaw_avg_index];
+            yaw_avg_buffer[yaw_avg_index] = current_yaw;
+            yaw_avg_sum += current_yaw;
+    
+            yaw_avg_index = (yaw_avg_index + 1) % 10;
+            if (yaw_avg_count < 10)
+                yaw_avg_count++;
+    
+            virtual_yaw_angle_ = yaw_avg_sum / yaw_avg_count;
+    
         }
-
-        // minipc_division ++;
-        // while (minipc_division == 10){
-        //     virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
-        //                        + (mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG);
-        //     minipc_recive_filter_.Update(virtual_yaw_angle_);
-        //     virtual_yaw_angle_ = minipc_recive_filter_.GetOutput();
-        //     minipc_division = 0;
-        // }
-
-        /* 每次更新叠加自瞄角 */
-        float current_yaw = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
-            + mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG;
-
-        /* 滑动平均 */
-        yaw_avg_sum -= yaw_avg_buffer[yaw_avg_index];
-        yaw_avg_buffer[yaw_avg_index] = current_yaw;
-        yaw_avg_sum += current_yaw;
-
-        yaw_avg_index = (yaw_avg_index + 1) % 10;
-        if (yaw_avg_count < 10)
-            yaw_avg_count++;
-
-        virtual_yaw_angle_ = yaw_avg_sum / yaw_avg_count;
         
         
         /********************** 超级电容 ***********************/   
