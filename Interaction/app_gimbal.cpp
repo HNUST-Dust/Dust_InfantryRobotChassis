@@ -96,9 +96,9 @@ void Gimbal::Init()
 #endif
     //yaw轴速度环PID初始化
     yaw_omega_pid_.Init(
-        0.1f,
-        0.1f,
-        0.0f,
+        0.08f,
+        0.008f,
+        0.00008f,
         0.1f,
         3.0f,
         9.9f,
@@ -130,7 +130,7 @@ void Gimbal::Init()
     yaw_omega_filter_.Init(15.0f,0.001f);
     pitch_omega_filter_.Init(15.0f,0.001f);
 
-    motor_yaw_.CanSendSaveZero();
+    motor_yaw_.CanSendSaveZero();//要放在第一个命令执行
     osDelay(pdMS_TO_TICKS(2000));
     motor_yaw_.CanSendClearError();
     motor_pitch_.CanSendClearError();
