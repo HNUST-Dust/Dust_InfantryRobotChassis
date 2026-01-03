@@ -112,7 +112,7 @@ void Gimbal::Init()
     );
     //pitch轴速度环PID初始化
     pitch_omega_pid_.Init(
-        0.08f,
+        0.1f,
         0.008f,
         0.0000f,
         1.0f,
@@ -236,10 +236,10 @@ void Gimbal::SelfResolution()
     SetTargetPitchOmega(pitch_angle_pid_.GetOut());
 #endif
 #ifdef PITCH_IMU_MODE
-    pitch_angle_pid_.SetTarget(virtual_pitch_angle_);
-    pitch_angle_pid_.SetNow(imu_pitch_angle_);
-    pitch_angle_pid_.CalculatePeriodElapsedCallback();
-    SetTargetPitchOmega(-pitch_angle_pid_.GetOut());
+    // pitch_angle_pid_.SetTarget(virtual_pitch_angle_);
+    // pitch_angle_pid_.SetNow(imu_pitch_angle_);
+    // pitch_angle_pid_.CalculatePeriodElapsedCallback();
+    // SetTargetPitchOmega(-pitch_angle_pid_.GetOut());
 #endif
     // pitch轴速度环
     pitch_omega_pid_.SetTarget(GetTargetPitchOmega());

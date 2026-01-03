@@ -116,7 +116,8 @@ void Robot::Task()
         gimbal_.SetPitchImuAngle(mcu_comm_.mcu_imu_data_.pitch_f);
         gimbal_.SetPitchImuOmega(mcu_comm_.mcu_imu_data_.pitch_omega_f);
         gimbal_.SetVirtualYawAngle(virtual_yaw_angle_);
-        gimbal_.SetVirtualPitchAngle(virtual_pitch_angle_);
+        // gimbal_.SetVirtualPitchAngle(virtual_pitch_angle_);
+        gimbal_.SetTargetPitchOmega(virtual_pitch_angle_);
 
         /********************** 底盘 ***********************/ 
         chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED / 128.0f); //9
@@ -184,8 +185,9 @@ void Robot::Task()
         supercap_.SetChargePower(50);
  
         /********************** 调试信息 ***********************/   
-        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
-        debug_tools_.VofaSendFloat(-mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG);
+        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
+        // debug_tools_.VofaSendFloat(-mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG);
+        debug_tools_.VofaSendFloat(gimbal_.GetNowPitchOmega());
         debug_tools_.VofaSendFloat(virtual_pitch_angle_);
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
