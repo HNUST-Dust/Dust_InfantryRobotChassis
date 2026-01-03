@@ -14,7 +14,7 @@
 #define YAW_SENSITIVITY_USED_IMU         0.00800F//0.00008
 #define YAW_SPEED_SENSITIVITY            0.05f
 #define PITCH_RANGE_MAX                  0.3f
-#define PITCH_RANGE_MAX_USE_IMU          10.0f
+#define PITCH_RANGE_MAX_USE_IMU          15.0f
 
 #define CHASSIS_SPEED                    25.0f
 #define CHASSIS_SPIN_SPEED               40.0f

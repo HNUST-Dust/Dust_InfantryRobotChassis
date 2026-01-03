@@ -43,9 +43,9 @@ void Gimbal::Init()
 #ifdef YAW_IMU_MODE
      //yaw轴角度环PID初始化
     yaw_angle_pid_.Init(
-        2.5f,
+        2.0f,
         0.1f,
-        0.30f,
+        0.4f,
         1.0f,
         44.0f,
         44.0f,
@@ -79,8 +79,8 @@ void Gimbal::Init()
 #ifdef PITCH_IMU_MODE
     //pitch轴角度环PID初始化
     pitch_angle_pid_.Init(
-        5.0f,
-        0.5f,
+        4.0f,
+        1.5f,
         0.5f,
         0.0f,
         44.0f,
