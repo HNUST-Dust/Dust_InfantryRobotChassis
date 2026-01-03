@@ -43,7 +43,7 @@ void Gimbal::Init()
 #ifdef YAW_IMU_MODE
      //yaw轴角度环PID初始化
     yaw_angle_pid_.Init(
-        2.0f,
+        1.8f,
         0.1f,
         0.4f,
         1.0f,
@@ -79,9 +79,9 @@ void Gimbal::Init()
 #ifdef PITCH_IMU_MODE
     //pitch轴角度环PID初始化
     pitch_angle_pid_.Init(
-        4.0f,
-        1.5f,
-        0.5f,
+        2.0f,
+        0.50f,
+        0.05f,
         0.0f,
         44.0f,
         44.0f,
@@ -112,10 +112,10 @@ void Gimbal::Init()
     );
     //pitch轴速度环PID初始化
     pitch_omega_pid_.Init(
-        0.06f,
+        0.08f,
         0.008f,
-        0.000108f,
-        0.1f,
+        0.0000f,
+        1.0f,
         3.0f,
         9.9f,
         0.001f,
@@ -143,7 +143,7 @@ void Gimbal::Init()
     motor_pitch_.SetKp(0);//26
 
     motor_yaw_.SetKd(0.0f); // MIT模式kd
-    motor_pitch_.SetKd(0.06f);//0.06
+    motor_pitch_.SetKd(0.0f);//0.06
 
     motor_yaw_.SetControlAngle(0);
     motor_pitch_.SetControlAngle(0);
@@ -243,8 +243,8 @@ void Gimbal::SelfResolution()
 #endif
     // pitch轴速度环
     pitch_omega_pid_.SetTarget(GetTargetPitchOmega());
-    float pitch_filtered_omega = pitch_omega_filter_.Update(GetNowPitchOmega());
-    pitch_omega_pid_.SetNow(pitch_filtered_omega);
+    // float pitch_filtered_omega = pitch_omega_filter_.Update(GetNowPitchOmega());
+    pitch_omega_pid_.SetNow(imu_pitch_omega_);
     pitch_omega_pid_.CalculatePeriodElapsedCallback();
 
     // // pitch轴角度归化到±PI / 2之间
@@ -261,7 +261,7 @@ void Gimbal::Output()
 
     // motor_yaw_.SetControlOmega(target_yaw_omega_ + yaw_omega_feedforword_);
     motor_yaw_.SetControlTorque(yaw_omega_pid_.GetOut());
-    motor_pitch_.SetControlOmega(target_pitch_omega_);
+    motor_pitch_.SetControlTorque(pitch_omega_pid_.GetOut());
     motor_yaw_.Output();
     motor_pitch_.Output();
 

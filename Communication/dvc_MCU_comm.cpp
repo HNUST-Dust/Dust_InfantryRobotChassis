@@ -112,15 +112,16 @@ void McuComm::CanAutoAimInfoRxCpltCallback(uint8_t* rx_data) {
      memcpy(&mcu_autoaim_data_.yaw_angle,&rx_data[0],4 * sizeof(uint8_t));
      memcpy(&mcu_autoaim_data_.pitch_angle,&rx_data[4],4 * sizeof(uint8_t));
 
-     memcpy(&mcu_autoaim_data_.yaw_omega,&rx_data[8],4 * sizeof(uint8_t));
-     memcpy(&mcu_autoaim_data_.pitch_omega,&rx_data[12],4 * sizeof(uint8_t));
+     // memcpy(&mcu_autoaim_data_.yaw_omega,&rx_data[8],4 * sizeof(uint8_t));
+     // memcpy(&mcu_autoaim_data_.pitch_omega,&rx_data[12],4 * sizeof(uint8_t));
 
-     memcpy(&mcu_autoaim_data_.yaw_torque,&rx_data[16],4 * sizeof(uint8_t));
-     memcpy(&mcu_autoaim_data_.pitch_torque,&rx_data[20],4 * sizeof(uint8_t));
+     // memcpy(&mcu_autoaim_data_.yaw_torque,&rx_data[16],4 * sizeof(uint8_t));
+     // memcpy(&mcu_autoaim_data_.pitch_torque,&rx_data[20],4 * sizeof(uint8_t));
 }
 
 void McuComm::CanImuInfoRxCpltCallback(uint8_t* rx_data) {
      memcpy(&mcu_imu_data_.yaw_total_angle_f,&rx_data[0],4 * sizeof(uint8_t));
      memcpy(&mcu_imu_data_.pitch_f,&rx_data[4],4 * sizeof(uint8_t));
      memcpy(&mcu_imu_data_.yaw_omega_f,&rx_data[8],4 * sizeof(uint8_t));
+     memcpy(&mcu_imu_data_.pitch_omega_f,&rx_data[12],4 * sizeof(uint8_t));
 }

@@ -176,6 +176,11 @@ public:
         imu_pitch_angle_ = imu_pitch_angle;
     }
 
+    inline void SetPitchImuOmega(float imu_pitch_omega)
+    {
+        imu_pitch_omega_ = imu_pitch_omega;
+    }
+
 protected:
     DebugTools debug_tools_;
 
@@ -249,6 +254,8 @@ protected:
     float imu_yaw_omega_ = 0.0f;
     // pitch imu角度
     float imu_pitch_angle_ = 0.0f;
+    // pitch imu 角速度
+    float imu_pitch_omega_ = 0.0f;
 
     void SelfResolution();
     void MotorNearestTransposition();
