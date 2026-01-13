@@ -96,9 +96,9 @@ void Gimbal::Init()
 #endif
     //yaw轴速度环PID初始化
     yaw_omega_pid_.Init(
-        0.08f,
+        0.04f,
         0.008f,
-        0.00008f,
+        0.00015f,
         0.1f,
         3.0f,
         9.9f,
