@@ -94,6 +94,7 @@ void can_init(FDCAN_HandleTypeDef *hcan, CanCallback callback_function);
 void can_filter_mask_config(FDCAN_HandleTypeDef *hcan, uint8_t object_para, uint32_t id, uint32_t mask_id);
 
 uint8_t can_send_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, uint16_t length);
+uint8_t can_send_remote_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, uint16_t length);
 uint8_t fdcan_send_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *data, uint16_t length);
 
 void can_period_elapsed_callback();

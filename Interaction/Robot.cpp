@@ -58,7 +58,9 @@ void Robot::Init()
     // ramp_init(&chassis_spin_ramp_source, 0.0005f, 30.0f, -30.0f);
     // 超级电容初始化
     supercap_.Init(&hfdcan3, 0x100, 0x003);
-
+    // 裁判系统初始化
+    referee_.Init();
+    
     // 初始化虚拟角度
     // virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f;
     virtual_yaw_angle_ = 0.0f;

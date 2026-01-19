@@ -292,7 +292,7 @@ void MotorDmNormal::CanSendExit()
  */
 void MotorDmNormal::CanSendSaveZero()
 {
-    can_send_data(can_manage_object_->can_handler, can_tx_id_, kDmMotorCANMessageSaveZero, 8);
+    can_send_remote_data(can_manage_object_->can_handler, can_tx_id_, kDmMotorCANMessageSaveZero, 8);
 }
 
 /**

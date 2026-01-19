@@ -105,11 +105,17 @@ void can3_callback(CanRxBuffer *CAN_RxMessage)
     }
 }
 
+void uart1_referee_callback(uint8_t *buffer, uint16_t length)
+{
+    robot.referee_.RxCpltCallback(buffer, length);
+}
 
 void Init()
 {
     // USART7 初始化，调试
     uart_init(&huart7, uart7_debug_callback, UART_BUFFER_SIZE);
+    // USART1 裁判系统
+    uart_init(&huart1, uart1_referee_callback, UART_BUFFER_SIZE);
     // CAN1 初始化，控制底盘
     can_init(&hfdcan1,can1_callback);
     // CAN2 初始化，与上板通讯

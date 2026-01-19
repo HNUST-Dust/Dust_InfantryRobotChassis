@@ -62,7 +62,7 @@ void uart_init(UART_HandleTypeDef *huart, UartCallback callback_function, uint16
 
 void uart_reinit(UART_HandleTypeDef *huart);
 
-uint8_t uart_send_data(UART_HandleTypeDef *huart, uint8_t *daata, uint16_t length);
+uint8_t uart_send_data(UART_HandleTypeDef *huart, uint8_t *data, uint16_t length);
 
 #endif
 

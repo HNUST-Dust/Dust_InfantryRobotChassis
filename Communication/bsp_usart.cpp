@@ -287,5 +287,8 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
     if (huart == &huart7) {
         g_uart7_manage_object.tx_cplt_flag = true;
     }
+    if (huart == &huart1) {
+        g_uart1_manage_object.tx_cplt_flag = true;
+    }
 }
 /************************ COPYRIGHT(C) HNUST-DUST **************************/

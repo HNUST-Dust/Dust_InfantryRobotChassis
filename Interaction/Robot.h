@@ -9,6 +9,7 @@
 #include "dvc_MCU_comm.h"
 #include "supercap.h"
 #include "debug_tools.h"
+#include "dvc_referee.h"
 
 #define YAW_SENSITIVITY                  0.00008F//0.00008
 #define YAW_SENSITIVITY_USED_IMU         0.00800F//0.00008
@@ -16,8 +17,8 @@
 #define PITCH_RANGE_MAX                  0.3f
 #define PITCH_RANGE_MAX_USE_IMU          15.0f
 
-#define CHASSIS_SPEED                    25.0f
-#define CHASSIS_SPIN_SPEED               40.0f
+#define CHASSIS_SPEED                    15.0f
+#define CHASSIS_SPIN_SPEED               30.0f
 
 #define YAW_GEAR_RATIO                   0.8f
 #define YAW_FEEDFORWORD_RATIO            0.19f
@@ -30,7 +31,7 @@ enum RobotGyroscopeType
 {
     ROBOT_GYROSCOPE_TYPE_DISABLE = 0,
     ROBOT_GYROSCOPE_TYPE_CLOCKWISE,
-    ROBOT_GYROSCOPE_TYPE_COUNTERCLOCKWISE,
+    ROBOT_GYROSCOPE_TYPE_COUNTERCLOCKWISE,  
 };
 
 class Robot
@@ -55,6 +56,8 @@ public:
     Supercap supercap_;
     // 底盘陀螺仪
     Imu imu_;
+    // 裁判系统
+    Referee referee_;
 
     void Init();
     void Task();

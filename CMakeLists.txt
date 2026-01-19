@@ -70,6 +70,7 @@ include_directories(
         Interaction/
         Algorithm/
         Device/
+        Device/generated_ui/
         Communication/
         Drivers/
         ThirdParty/SEGGER/Config
