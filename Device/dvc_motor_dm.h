@@ -172,6 +172,7 @@ struct MotorDmRxDataNormal
     int32_t total_encoder;
     int32_t total_round;
     float now_angle_noncumulative;
+    float start_angle;
 };
 
 /**

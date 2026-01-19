@@ -292,7 +292,7 @@ void MotorDmNormal::CanSendExit()
  */
 void MotorDmNormal::CanSendSaveZero()
 {
-    can_send_remote_data(can_manage_object_->can_handler, can_tx_id_, kDmMotorCANMessageSaveZero, 8);
+    can_send_data(can_manage_object_->can_handler, can_tx_id_, kDmMotorCANMessageSaveZero, 8);
 }
 
 /**
@@ -357,6 +357,7 @@ void MotorDmNormal::SendPeriodElapsedCallback()
  */
 void MotorDmNormal::DataProcess()
 {
+    static uint8_t first_flag = 0;
     // 数据处理过程
     int32_t delta_encoder;
     uint16_t tmp_encoder, tmp_omega, tmp_torque;
@@ -396,7 +397,7 @@ void MotorDmNormal::DataProcess()
     rx_data_.now_torque = math_int_to_float(tmp_torque, 0x7ff, (1 << 12) - 1, 0, torque_max_);
     rx_data_.now_mos_temperature = tmp_buffer->mos_temperature + CELSIUS_TO_KELVIN;
     rx_data_.now_rotor_temperature = tmp_buffer->rotor_temperature + CELSIUS_TO_KELVIN;
-
+    
     // 存储预备信息
     rx_data_.pre_encoder = tmp_encoder;
 }

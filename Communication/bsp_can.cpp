@@ -147,7 +147,7 @@ uint8_t can_send_remote_data(FDCAN_HandleTypeDef *hcan, uint16_t id, uint8_t *da
 
     tx_header.Identifier            = id;
     tx_header.IdType                = FDCAN_STANDARD_ID;            // 标准ID
-    tx_header.TxFrameType           = FDCAN_REMOTE_FRAME;             // 数据帧
+    tx_header.TxFrameType           = FDCAN_REMOTE_FRAME;             // 遥控帧
     tx_header.DataLength            = length;                       // 数据长度，注意有些HAL可能用DLC编码，需要确认
     tx_header.ErrorStateIndicator   = FDCAN_ESI_ACTIVE;             // 错误指示，默认正常
     tx_header.BitRateSwitch         = FDCAN_BRS_OFF;                // 不启用比特率切换

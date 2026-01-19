@@ -16,11 +16,11 @@
 #include "alg_math.h"
 #include "low_pass_filter.hpp"
 #include "cmsis_os.h"
+#include "projdefs.h"
 void Gimbal::Init()
 {
     // 6220电机初始化
-    motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,3.14159f);
-    motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
+    // motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,3.14159f);
 
 #ifdef YAW_ENCODER_MODE
      //yaw轴角度环PID初始化
@@ -130,14 +130,17 @@ void Gimbal::Init()
     yaw_omega_filter_.Init(15.0f,0.001f);
     pitch_omega_filter_.Init(15.0f,0.001f);
 
-    motor_yaw_.CanSendSaveZero();//要放在第一个命令执行
-    osDelay(pdMS_TO_TICKS(2000));
+    motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,3.14159f);
+    motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
+
+    motor_yaw_.CanSendSaveZero();
+    osDelay(pdMS_TO_TICKS(1000));
     motor_yaw_.CanSendClearError();
     motor_pitch_.CanSendClearError();
-    osDelay(100);
+    osDelay(pdMS_TO_TICKS(1000));
     motor_yaw_.CanSendEnter();
     motor_pitch_.CanSendEnter();
-    osDelay(100);
+    osDelay(pdMS_TO_TICKS(1000));
 
     motor_yaw_.SetKp(0); //MIT模式kp
     motor_pitch_.SetKp(0);//26
@@ -155,7 +158,6 @@ void Gimbal::Init()
     motor_pitch_.SetControlTorque(0);
 
     motor_yaw_.Output();
-    // osDelay(pdMS_TO_TICKS(10));
     motor_pitch_.Output();
 
     // debug_tools_.VofaInit();
@@ -258,13 +260,11 @@ void Gimbal::SelfResolution()
  */
 void Gimbal::Output()
 {
-
     // motor_yaw_.SetControlOmega(target_yaw_omega_ + yaw_omega_feedforword_);
     motor_yaw_.SetControlTorque(yaw_omega_pid_.GetOut());
     motor_pitch_.SetControlTorque(pitch_omega_pid_.GetOut());
     motor_yaw_.Output();
     motor_pitch_.Output();
-
 }
 
 /**

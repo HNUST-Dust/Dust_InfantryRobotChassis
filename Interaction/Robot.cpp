@@ -155,35 +155,12 @@ void Robot::Task()
             // if(fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) <0.3f){
                 virtual_pitch_angle_ = - mcu_comm_.mcu_imu_data_.pitch_f
                                        - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
-            // }
-
-            // /* 每次更新叠加自瞄角 */
-            // float current_yaw = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
-            //     + mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG;
-    
-            // /* 滑动平均 */
-            // yaw_avg_sum -= yaw_avg_buffer[yaw_avg_index];
-            // yaw_avg_buffer[yaw_avg_index] = current_yaw;
-            // yaw_avg_sum += current_yaw;
-    
-            // yaw_avg_index = (yaw_avg_index + 1) % 3;
-            // if (yaw_avg_count < 3)
-            //     yaw_avg_count++;
-    
-            // virtual_yaw_angle_ = yaw_avg_sum / yaw_avg_count;
-
-            // virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
-            //     + mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG;
-
+            
             virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
                                     + (mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG);
                 minipc_recive_filter_.Update(virtual_yaw_angle_);
                 virtual_yaw_angle_ = minipc_recive_filter_.GetOutput();
-            // minipc_division ++;
-            // if (minipc_division == 10) {
-                
-            //     minipc_division = 0;
-            // }
+   
         }
         
         
@@ -199,9 +176,9 @@ void Robot::Task()
         supercap_.SetChargePower(50);
  
         /********************** 调试信息 ***********************/   
-        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
+        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         // debug_tools_.VofaSendFloat(-mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG);
-        debug_tools_.VofaSendFloat(virtual_yaw_angle_);
+        debug_tools_.VofaSendFloat(-normalize_angle_pm_pi(gimbal_.GetNowYawAngle()/YAW_GEAR_RATIO));
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_omega_f); 
