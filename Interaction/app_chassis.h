@@ -35,6 +35,10 @@ public:
     inline void SetTargetVyInGimbal(float target_vy);
     inline void SetTargetVelocityRotation(float target_velocity_rotation);
     inline void SetYawAngle(float yaw_angle);
+    inline float GetTheta()
+    {
+        return theta;
+    }
 protected:
     // 云台坐标系目标速度
     float target_vx_in_gimbal_ = 0.0f;
@@ -46,7 +50,9 @@ protected:
     float target_velocity_rotation_ = 0.0f;
     // 云台相对于底盘的偏航角（逆时针为正）
     float yaw_angle_ = 0.0f; 
+    float theta = 0.0f;
 
+    void CalcGimbalToChassisThetaFromRad(float motor_abs_rad);
     void KinematicsInverseResolution();
     void RotationMatrixTransform();
     void OutputToMotor();

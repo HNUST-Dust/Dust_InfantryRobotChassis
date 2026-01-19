@@ -45,15 +45,39 @@ void Chassis::Exit()
     motor_chassis_3_.SetTargetOmega(0.0f);
     motor_chassis_4_.SetTargetOmega(0.0f);
 }
+
+// 参数说明：
+// motor_abs_rad : 电机绝对角度，单位 rad，范围 [-4π, 4π]
+// 返回值：云台相对底盘夹角 theta，单位 rad，范围 [0, 2π)
+void Chassis::CalcGimbalToChassisThetaFromRad(float motor_abs_rad)
+{
+    const float GEAR_RATIO = 1.25f;           // 电机 : 云台减速比
+    const float GIMBAL_CYCLE_RAD = 2.0f * M_PI * 5.0f; // 云台 5 圈 = 一个方向周期
+     
+    // 1. 电机弧度转换为云台弧度
+    float gimbal_rad = -motor_abs_rad / GEAR_RATIO;
+
+    // 2. 云台每 5 圈重合 → 2π*5 rad，对应周期取模
+    gimbal_rad = fmod(gimbal_rad, GIMBAL_CYCLE_RAD);
+
+    // 3. 保证结果在 [0, GIMBAL_CYCLE_RAD)
+    if (gimbal_rad < 0)
+        gimbal_rad += GIMBAL_CYCLE_RAD;
+
+    // 4. 转换为相对夹角（单位 0~2π rad）
+    theta = fmod(gimbal_rad, 2.0f * M_PI);
+}
+
 /**
  * @brief 云台系速度 → 底盘系速度 旋转变换
  * @param yaw_angle 云台相对于底盘的偏航角（逆时针为正）
  */
 void Chassis::RotationMatrixTransform()
 {
+    CalcGimbalToChassisThetaFromRad(yaw_angle_);
     // 旋转矩阵变换
-    target_vx_in_chassis_ = cosf(yaw_angle_) * target_vx_in_gimbal_ - sinf(yaw_angle_) * target_vy_in_gimbal_;
-    target_vy_in_chassis_ = sinf(yaw_angle_) * target_vx_in_gimbal_ + cosf(yaw_angle_) * target_vy_in_gimbal_;
+    target_vx_in_chassis_ = cosf(theta) * target_vx_in_gimbal_ - sinf(theta) * target_vy_in_gimbal_;
+    target_vy_in_chassis_ = sinf(theta) * target_vx_in_gimbal_ + cosf(theta) * target_vy_in_gimbal_;
 }
 
 void Chassis::KinematicsInverseResolution()

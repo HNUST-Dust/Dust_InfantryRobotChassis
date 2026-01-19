@@ -397,7 +397,12 @@ void MotorDmNormal::DataProcess()
     rx_data_.now_torque = math_int_to_float(tmp_torque, 0x7ff, (1 << 12) - 1, 0, torque_max_);
     rx_data_.now_mos_temperature = tmp_buffer->mos_temperature + CELSIUS_TO_KELVIN;
     rx_data_.now_rotor_temperature = tmp_buffer->rotor_temperature + CELSIUS_TO_KELVIN;
-    
+
+    if(!first_flag)
+    {
+        start_angle = rx_data_.now_angle;
+        first_flag = 1;
+    }
     // 存储预备信息
     rx_data_.pre_encoder = tmp_encoder;
 }

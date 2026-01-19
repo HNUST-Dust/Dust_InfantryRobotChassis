@@ -130,11 +130,11 @@ void Gimbal::Init()
     yaw_omega_filter_.Init(15.0f,0.001f);
     pitch_omega_filter_.Init(15.0f,0.001f);
 
-    motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,3.14159f);
+    motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,12.56637f);
     motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
 
-    motor_yaw_.CanSendSaveZero();
-    osDelay(pdMS_TO_TICKS(1000));
+    // motor_yaw_.CanSendSaveZero();
+    // osDelay(pdMS_TO_TICKS(1000));
     motor_yaw_.CanSendClearError();
     motor_pitch_.CanSendClearError();
     osDelay(pdMS_TO_TICKS(1000));
@@ -197,7 +197,7 @@ void Gimbal::SelfResolution()
         yaw_relative_zero_angle_ = get_relative_angle_pm_pi(now_yaw_angle_, yaw_zero_angle_);
     }
     yaw_now_angle_noncumulative_ = motor_yaw_.GetNowAngleNoncumulative();
-
+    yaw_start_angle = motor_yaw_.GetStartAngle();
 
     now_pitch_omega_ = motor_pitch_.GetNowOmega();
     now_yaw_omega_   = motor_yaw_.GetNowOmega();

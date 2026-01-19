@@ -249,6 +249,11 @@ public:
 
     inline float GetKd();
 
+    inline float GetStartAngle()
+    {
+        return start_angle;
+    }
+    
     inline void SetControlAngle(float control_angle);
 
     inline void SetControlOmega(float control_omega);
@@ -277,6 +282,7 @@ public:
 
     // 单元测试临时添加输出函数
     void Output();
+
 protected:
     // 初始化相关变量
 
@@ -333,7 +339,8 @@ protected:
     float k_p_ = 0.0f;
     // k_d_, 0~5, MIT模式有效
     float k_d_ = 0.0f;
-
+    // 上电后的绝对角度
+    float start_angle;
     // 内部函数
 
     void DataProcess();

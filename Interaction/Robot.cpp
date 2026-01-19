@@ -124,7 +124,7 @@ void Robot::Task()
         chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED / 128.0f); //9
         chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED / 128.0f); //9
         chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPEED / 128.0f));
-        chassis_.SetYawAngle(-normalize_angle_pm_pi(gimbal_.GetNowYawAngle()/YAW_GEAR_RATIO));
+        chassis_.SetYawAngle(gimbal_.GetNowYawAngle());
     
         /********************** 模式切换 ***********************/   
         switch(mcu_comm_data_local.chassis_spin)
@@ -178,7 +178,7 @@ void Robot::Task()
         /********************** 调试信息 ***********************/   
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         // debug_tools_.VofaSendFloat(-mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG);
-        debug_tools_.VofaSendFloat(-normalize_angle_pm_pi(gimbal_.GetNowYawAngle()/YAW_GEAR_RATIO));
+        debug_tools_.VofaSendFloat(chassis_.GetTheta());
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_omega_f); 

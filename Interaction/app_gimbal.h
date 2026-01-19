@@ -113,6 +113,11 @@ public:
         return pitch_now_angle_noncumulative_;
     }
 
+    inline float GetYawStartAngle()
+    {
+        return yaw_start_angle;
+    }
+
     inline void SetTargetYawAngle(float target_yaw_angle);
 
     inline void SetTargetPitchAngle(float target_pitch_angle);
@@ -256,6 +261,8 @@ protected:
     float imu_pitch_angle_ = 0.0f;
     // pitch imu 角速度
     float imu_pitch_omega_ = 0.0f;
+
+    float yaw_start_angle = 0.0f;
 
     void SelfResolution();
     void MotorNearestTransposition();
