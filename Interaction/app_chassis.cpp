@@ -51,7 +51,7 @@ void Chassis::Exit()
 // 返回值：云台相对底盘夹角 theta，单位 rad，范围 [0, 2π)
 void Chassis::CalcGimbalToChassisThetaFromRad(float motor_abs_rad)
 {
-    const float GEAR_RATIO = 1.25f;           // 电机 : 云台减速比
+    const float GEAR_RATIO = 0.8f;           // 电机 : 云台减速比
     const float GIMBAL_CYCLE_RAD = 2.0f * M_PI * 5.0f; // 云台 5 圈 = 一个方向周期
      
     // 1. 电机弧度转换为云台弧度
