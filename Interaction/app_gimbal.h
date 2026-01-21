@@ -62,6 +62,7 @@ public:
     void Init();
     void Task();
     void Exit();
+    void SetYawZero();
 
     inline float GetNowYawAngle();
 

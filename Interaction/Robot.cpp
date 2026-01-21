@@ -33,7 +33,7 @@ void Robot::Init()
     mcu_comm_.Init(&hfdcan2, 0x01, 0x00);
     // 陀螺仪初始化
     // imu_.Init();
-    osDelay(pdMS_TO_TICKS(10000));// 10s时间等待陀螺仪收敛
+    osDelay(pdMS_TO_TICKS(3000));// 10s时间等待陀螺仪收敛
 
     // 底盘跟随控制PID初始化  17.0f,0.0f,0.0f,5.0f,0.0f,6.0f,0.001f,0.0f,0.0f,0.0f,0.0f
     chassis_follow_pid_.Init(
@@ -105,12 +105,12 @@ void Robot::Task()
         /********************** 云台 ***********************/   
         virtual_yaw_angle_ += (127.0f - mcu_comm_data_local.yaw )*YAW_SENSITIVITY_USED_IMU;
         if(mcu_comm_data_local.auto_aim_flag == 0) {
-            virtual_pitch_angle_ = (127.0f - mcu_comm_data_local.pitch_angle )*(PITCH_RANGE_MAX_USE_IMU/128.0f);
+            virtual_pitch_angle_ = (127.0f - mcu_comm_data_local.pitch_angle )*(2 * PITCH_RANGE_MAX_USE_IMU/128.0f);
         }
-        if (virtual_pitch_angle_ >= PITCH_RANGE_MAX_USE_IMU){
-            virtual_pitch_angle_ = PITCH_RANGE_MAX_USE_IMU;
-        }else if(virtual_pitch_angle_ <= -PITCH_RANGE_MAX_USE_IMU){
-            virtual_pitch_angle_ = -PITCH_RANGE_MAX_USE_IMU;
+        if (virtual_pitch_angle_ >= 1.5 * PITCH_RANGE_MAX_USE_IMU){
+            virtual_pitch_angle_ = 1.5 * PITCH_RANGE_MAX_USE_IMU;
+        }else if(virtual_pitch_angle_ <= (-3 * PITCH_RANGE_MAX_USE_IMU)){
+            virtual_pitch_angle_ = (-3 * PITCH_RANGE_MAX_USE_IMU);
         }
 
         gimbal_.SetYawImuAngle(mcu_comm_.mcu_imu_data_.yaw_total_angle_f);
@@ -148,6 +148,12 @@ void Robot::Task()
             // do nothing
             break; 
         };
+        if (mcu_comm_data_local.reset_zero == 1)
+        {
+            gimbal_.SetYawZero();
+            gimbal_.motor_yaw_.CanSendEnter();
+            osDelay(100);
+        }
 
         /********************** mini PC ***********************/  
          

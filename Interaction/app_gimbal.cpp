@@ -130,7 +130,7 @@ void Gimbal::Init()
     yaw_omega_filter_.Init(15.0f,0.001f);
     pitch_omega_filter_.Init(15.0f,0.001f);
 
-    motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,3.14159f);
+    motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,12.56637);
     motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
 
     motor_yaw_.CanSendSaveZero();
@@ -254,6 +254,15 @@ void Gimbal::SelfResolution()
 
 }
 
+void Gimbal::SetYawZero()
+{
+    motor_yaw_.CanSendExit();
+    osDelay(pdMS_TO_TICKS(100));
+    motor_yaw_.CanSendSaveZero();
+    osDelay(pdMS_TO_TICKS(200));
+    motor_yaw_.CanSendEnter();
+    osDelay(pdMS_TO_TICKS(100));
+}
 /**
  * @brief 输出到电机
  *
