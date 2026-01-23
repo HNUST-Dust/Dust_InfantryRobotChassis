@@ -92,6 +92,9 @@ void Robot::Task()
     uint8_t yaw_avg_index = 0;
     uint8_t yaw_avg_count = 0;
     float yaw_avg_sum = 0.0f;
+    float spin_speed = 0.0f;
+    float accel = 0.03f;
+
     for (;;)
     {
         __disable_irq();
@@ -130,12 +133,19 @@ void Robot::Task()
         switch(mcu_comm_data_local.chassis_spin)
         {
             case CHASSIS_SPIN_CLOCKWISE:
-                chassis_.SetTargetVelocityRotation(CHASSIS_SPIN_SPEED);
+                // --- 缓启动逼近 ---
+                if (spin_speed < CHASSIS_SPIN_SPEED)
+                    spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED);
+                else if (spin_speed > CHASSIS_SPIN_SPEED)
+                    spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED);
+
+                chassis_.SetTargetVelocityRotation(spin_speed);
                 gimbal_.SetGimbalYawControlType(GIMBAL_CONTROL_TYPE_OMEGA);
                 gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED);
                 gimbal_.SetTargetYawOmega((mcu_comm_data_local.yaw - 127.0f)*YAW_SPEED_SENSITIVITY); //补偿速度可能符号错了
             break;
             case CHASSIS_SPIN_DISABLE:
+                spin_speed = 0;
                 chassis_.SetTargetVelocityRotation(0.0f);
                 gimbal_.SetGimbalYawControlType(GIMBAL_CONTROL_TYPE_ANGLE);
                 gimbal_.SetYawOmegaFeedforword(0.0f);
@@ -151,7 +161,7 @@ void Robot::Task()
         if (mcu_comm_data_local.reset_zero == 1)
         {
             gimbal_.SetYawZero();
-            gimbal_.motor_yaw_.CanSendEnter();
+            gimbal_.motor_pitch_.CanSendEnter();
             osDelay(100);
         }
 

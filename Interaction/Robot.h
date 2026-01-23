@@ -17,8 +17,8 @@
 #define PITCH_RANGE_MAX                  0.3f
 #define PITCH_RANGE_MAX_USE_IMU          15.0f
 
-#define CHASSIS_SPEED                    15.0f
-#define CHASSIS_SPIN_SPEED               30.0f
+#define CHASSIS_SPEED                    10.0f
+#define CHASSIS_SPIN_SPEED               20.0f
 
 #define YAW_GEAR_RATIO                   0.8f
 #define YAW_FEEDFORWORD_RATIO            0.19f
