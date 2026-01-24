@@ -7,7 +7,7 @@ void Referee::Init()
 {
     static const osThreadAttr_t kRefereeTaskAttr = {
         .name = "referee_task",
-        .stack_size = 512,//剩余260字节
+        .stack_size = 512,
         .priority = (osPriority_t) osPriorityNormal
     };
     osThreadNew(Referee::TaskEntry, this, &kRefereeTaskAttr);

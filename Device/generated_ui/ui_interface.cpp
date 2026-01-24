@@ -11,7 +11,7 @@
 #include "cmsis_os2.h"
 #include "cmsis_os.h"
 uint8_t seq = 0;
-int ui_self_id = 1;
+int ui_self_id = 3;
 
 ui_string_frame_t _ui_string_frame;
 ui_1_frame_t _ui_1_frame;

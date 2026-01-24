@@ -31,8 +31,7 @@ void Robot::Init()
     debug_tools_.VofaInit();
     // 上下板通讯组件初始化
     mcu_comm_.Init(&hfdcan2, 0x01, 0x00);
-    // 陀螺仪初始化
-    // imu_.Init();
+
     osDelay(pdMS_TO_TICKS(3000));// 10s时间等待陀螺仪收敛
 
     // 底盘跟随控制PID初始化  17.0f,0.0f,0.0f,5.0f,0.0f,6.0f,0.001f,0.0f,0.0f,0.0f,0.0f
