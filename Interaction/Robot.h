@@ -19,7 +19,7 @@
 #define PITCH_RANGE_MAX_USE_IMU          15.0f
 
 #define CHASSIS_SPEED                    10.0f
-#define CHASSIS_SPIN_SPEED               20.0f
+#define CHASSIS_SPIN_SPEED               30.0f
 
 #define YAW_GEAR_RATIO                   0.8f
 #define YAW_FEEDFORWORD_RATIO            0.19f
@@ -49,7 +49,8 @@ public:
     // 底盘小陀螺斜坡规划器
     float ramp_temp = 0.0f;
     ramp_function_source_t chassis_spin_ramp_source;
-    LowPassFilter minipc_recive_filter_;
+    LowPassFilter minipc_yaw_recive_filter_;
+    LowPassFilter minipc_pitch_recive_filter_;
 
     // 云台
     Gimbal  gimbal_;

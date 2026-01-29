@@ -81,7 +81,7 @@ void Gimbal::Init()
     pitch_angle_pid_.Init(
         4.0f,
         1.50f,
-        0.15f,
+        0.25f,
         0.0f,
         44.0f,
         44.0f,
