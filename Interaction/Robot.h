@@ -10,6 +10,7 @@
 #include "supercap.h"
 #include "debug_tools.h"
 #include "dvc_referee.h"
+#include <stdint.h>
 
 #define YAW_SENSITIVITY                  0.00008F//0.00008
 #define YAW_SENSITIVITY_USED_IMU         0.00800F//0.00008
@@ -62,6 +63,15 @@ public:
     void Init();
     void Task();
 protected:
+    // 机器人本场比赛的实时信息
+    uint8_t id_;
+    uint8_t level_;
+    uint16_t current_hp_;
+    uint16_t max_hp_;
+    uint16_t shooter_barrel_cooling_value_;
+    uint16_t shooter_barrel_heat_limit_; 
+    uint16_t chassis_power_limit_;
+
     // 操作手控制的的虚拟角度
     float virtual_yaw_angle_ = 0;
     float virtual_pitch_angle_ = 0;

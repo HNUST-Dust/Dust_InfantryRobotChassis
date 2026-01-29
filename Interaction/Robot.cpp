@@ -127,7 +127,7 @@ void Robot::Task()
         chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED / 128.0f); //9
         chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPEED / 128.0f));
         chassis_.SetYawAngle(-normalize_angle_pm_pi(gimbal_.GetNowYawAngle()/YAW_GEAR_RATIO));
-    
+
         /********************** 模式切换 ***********************/   
         switch(mcu_comm_data_local.chassis_spin)
         {
