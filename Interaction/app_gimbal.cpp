@@ -8,19 +8,34 @@
  * @copyright Copyright (c) 2025
  * 
  */
-#include "FreeRTOS.h"
 #include "app_gimbal.h"
 #include "alg_pid.h"
 #include "cmsis_os2.h"
-#include "interpolation.hpp"
+
+extern "C" {
+#include "FreeRTOS.h"
+#include "task.h" // for taskDISABLE_INTERRUPTS used by configASSERT
+}
+
+// 满足 clang-tidy: "Included header FreeRTOS.h is not used directly"
+static constexpr uint32_t kFreeRtosTickPeriodMs = portTICK_PERIOD_MS;
+
+#include "../communication_topic/motor_topics.hpp" // per-motor cmd/state + admin
+
 #include "alg_math.h"
 #include "low_pass_filter.hpp"
-#include "cmsis_os.h"
-#include "projdefs.h"
-void Gimbal::Init()
+#include "../communication_topic/gimbal_topics.hpp"
+#include "../communication_topic/gimbal_state_topics.hpp"
+
+void Gimbal::Start()
 {
-    // 6220电机初始化
-    // motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,3.14159f);
+    if (started_) {
+        configASSERT(false);
+        return;
+    }
+    started_ = true;
+
+    // 业务层只做控制参数初始化（PID/滤波器等）
 
 #ifdef YAW_ENCODER_MODE
      //yaw轴角度环PID初始化
@@ -130,49 +145,57 @@ void Gimbal::Init()
     yaw_omega_filter_.Init(15.0f,0.001f);
     pitch_omega_filter_.Init(15.0f,0.001f);
 
-    motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,12.56637);
-    motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
+    // 不再在这里 Init/Enter/Output 电机；交给 MotorActuatorTask
 
-    motor_yaw_.CanSendSaveZero();
-    osDelay(pdMS_TO_TICKS(1000));
-    motor_yaw_.CanSendClearError();
-    motor_pitch_.CanSendClearError();
-    osDelay(pdMS_TO_TICKS(1000));
-    motor_yaw_.CanSendEnter();
-    motor_pitch_.CanSendEnter();
-    osDelay(pdMS_TO_TICKS(1000));
-
-    motor_yaw_.SetKp(0); //MIT模式kp
-    motor_pitch_.SetKp(0);//26
-
-    motor_yaw_.SetKd(0.0f); // MIT模式kd
-    motor_pitch_.SetKd(0.0f);//0.06
-
-    motor_yaw_.SetControlAngle(0);
-    motor_pitch_.SetControlAngle(0);
-
-    motor_yaw_.SetControlOmega(0);
-    motor_pitch_.SetControlOmega(0);
-
-    motor_yaw_.SetControlTorque(0);
-    motor_pitch_.SetControlTorque(0);
-
-    motor_yaw_.Output();
-    motor_pitch_.Output();
-
-    // debug_tools_.VofaInit();
     static const osThreadAttr_t kGimbalTaskAttr = {
         .name = "gimbal_task",
         .stack_size = 512,//剩余260字节
         .priority = (osPriority_t) osPriorityNormal
     };
-    osThreadNew(Gimbal::TaskEntry, this, &kGimbalTaskAttr);
+    thread_ = osThreadNew(Gimbal::TaskEntry, this, &kGimbalTaskAttr);
+    if (!thread_) {
+        configASSERT(false);
+    }
 }
 
 void Gimbal::Exit()
 {
-    motor_yaw_.CanSendExit();
-    motor_pitch_.CanSendExit();
+    // 方案B：让执行器层退出（急停）
+    // orb::GimbalDmAdminCmd admin{};
+    // admin.op = orb::GimbalDmAdminOp::BothExit;
+    // orb::gimbal_dm_admin_cmd.publish(admin);
+
+    // 同时将目标清零（由MotorActuatorTask输出到电机）
+    // orb::GimbalDmTarget t{};
+    // t.yaw_angle = 0.0f;
+    // t.yaw_omega = 0.0f;
+    // t.yaw_torque = 0.0f;
+    // t.pitch_angle = 0.0f;
+    // t.pitch_omega = 0.0f;
+    // t.pitch_torque = 0.0f;
+    // orb::gimbal_dm_target.publish(t);
+
+    // 新方案：直接对电机发布禁用/清零
+    // yaw (0x12 on CAN3)
+    {
+        orb::MotorCmd c{};
+        c.id.bus = orb::MotorBus::CAN3;
+        c.id.std_id = 0x12;
+        c.mode = orb::MotorCtrlMode::Angle;
+        c.target_angle = 0.0f;
+        c.target_omega = 0.0f;
+        orb::motor_cmd.publish(c);
+    }
+    // pitch (0x11 on CAN3)
+    {
+        orb::MotorCmd c{};
+        c.id.bus = orb::MotorBus::CAN3;
+        c.id.std_id = 0x11;
+        c.mode = orb::MotorCtrlMode::Angle;
+        c.target_angle = 0.0f;
+        c.target_omega = 0.0f;
+        orb::motor_cmd.publish(c);
+    }
 }
 
 /**
@@ -181,31 +204,18 @@ void Gimbal::Exit()
  */
 void Gimbal::SelfResolution()
 {
-    static uint8_t first_resolution_flag = 0;
+    // 业务层不再直接读取电机反馈；这里的 now_* 只做状态镜像（来自 IMU）
+    now_yaw_angle_ = imu_yaw_angle_;
+    now_pitch_angle_ = imu_pitch_angle_;
 
-    now_pitch_angle_ = motor_pitch_.GetNowAngle();
-    pitch_now_angle_noncumulative_ = motor_pitch_.GetNowAngleNoncumulative();
+    now_yaw_omega_ = imu_yaw_omega_;
+    now_pitch_omega_ = imu_pitch_omega_;
 
-    now_yaw_angle_   = motor_yaw_.GetNowAngle();
+    // 执行器层（MotorActuatorTask）会维护实际 torque 反馈；这里先置 0
+    now_yaw_torque_ = 0.0f;
+    now_pitch_torque_ = 0.0f;
 
-    // 过零处理
-    if(first_resolution_flag == 0){
-        first_resolution_flag = 1;
-        yaw_zero_angle_ = now_yaw_angle_;
-        yaw_relative_zero_angle_ = 0.0f;
-    }else{
-        yaw_relative_zero_angle_ = get_relative_angle_pm_pi(now_yaw_angle_, yaw_zero_angle_);
-    }
-    yaw_now_angle_noncumulative_ = motor_yaw_.GetNowAngleNoncumulative();
-
-
-    now_pitch_omega_ = motor_pitch_.GetNowOmega();
-    now_yaw_omega_   = motor_yaw_.GetNowOmega();
-    
-    now_pitch_torque_ = motor_pitch_.GetNowTorque();
-    now_yaw_torque_ = motor_yaw_.GetNowTorque();
-
-    // yaw轴角度环
+    // yaw 角度环
 #ifdef YAW_ENCODER_MODE
     yaw_angle_pid_.SetTarget(0);
     float yaw_err = CalcYawError(virtual_yaw_angle_, normalize_angle_pm_pi(GetNowYawAngle()/0.8f));
@@ -223,15 +233,14 @@ void Gimbal::SelfResolution()
     yaw_angle_pid_.CalculatePeriodElapsedCallback();
     SetTargetYawOmega(-yaw_angle_pid_.GetOut());
 #endif
-    // yaw轴速度环
+
+    // yaw 速度环
     yaw_omega_pid_.SetTarget(GetTargetYawOmega());
-    // float filtered_omega = yaw_omega_filter_.Update(GetNowYawOmega());
     yaw_omega_pid_.SetNow(-imu_yaw_omega_);
     yaw_omega_pid_.CalculatePeriodElapsedCallback();
 
-    // pitch轴角度环
+    // pitch 角度环
 #ifdef PITCH_ENCODER_MODE
-    // pitch_angle_pid_.SetTarget(virtual_pitch_angle_);
     pitch_angle_pid_.SetTarget(virtual_pitch_angle_);
     pitch_angle_pid_.SetNow(GetPitchNowAngleNoncumulative());
     pitch_angle_pid_.CalculatePeriodElapsedCallback();
@@ -243,37 +252,43 @@ void Gimbal::SelfResolution()
     pitch_angle_pid_.CalculatePeriodElapsedCallback();
     SetTargetPitchOmega(-pitch_angle_pid_.GetOut());
 #endif
-    // pitch轴速度环
+
+    // pitch 速度环
     pitch_omega_pid_.SetTarget(GetTargetPitchOmega());
-    // float pitch_filtered_omega = pitch_omega_filter_.Update(GetNowPitchOmega());
     pitch_omega_pid_.SetNow(imu_pitch_omega_);
     pitch_omega_pid_.CalculatePeriodElapsedCallback();
-
-    // // pitch轴角度归化到±PI / 2之间
-    // now_pitch_angle_ = Math_Modulus_Normalization(-motor_pitch_.GetNowAngle(), 2.0f * PI);
-
 }
 
 void Gimbal::SetYawZero()
 {
-    motor_yaw_.CanSendExit();
-    osDelay(pdMS_TO_TICKS(100));
-    motor_yaw_.CanSendSaveZero();
-    osDelay(pdMS_TO_TICKS(200));
-    motor_yaw_.CanSendEnter();
-    osDelay(pdMS_TO_TICKS(100));
+    orb::MotorAdminCmd cmd{};
+    cmd.id.bus = orb::MotorBus::CAN3;
+    cmd.id.std_id = 0x12;
+    cmd.op = orb::MotorAdminOp::SaveZero;
+    orb::motor_admin_cmd.publish(cmd);
 }
-/**
- * @brief 输出到电机
- *
- */
+
 void Gimbal::Output()
 {
-    // motor_yaw_.SetControlOmega(target_yaw_omega_ + yaw_omega_feedforword_);
-    motor_yaw_.SetControlTorque(yaw_omega_pid_.GetOut());
-    motor_pitch_.SetControlTorque(pitch_omega_pid_.GetOut());
-    motor_yaw_.Output();
-    motor_pitch_.Output();
+    // 新方案：直接发布到 orb::motor_cmd
+    {
+        orb::MotorCmd c{};
+        c.id.bus = orb::MotorBus::CAN3;
+        c.id.std_id = 0x12;
+        c.mode = orb::MotorCtrlMode::Angle;
+        c.target_angle = GetTargetYawAngle();
+        c.target_omega = GetTargetYawOmega();
+        orb::motor_cmd.publish(c);
+    }
+    {
+        orb::MotorCmd c{};
+        c.id.bus = orb::MotorBus::CAN3;
+        c.id.std_id = 0x11;
+        c.mode = orb::MotorCtrlMode::Angle;
+        c.target_angle = GetTargetPitchAngle();
+        c.target_omega = GetTargetPitchOmega();
+        orb::motor_cmd.publish(c);
+    }
 }
 
 /**
@@ -282,23 +297,16 @@ void Gimbal::Output()
  */
 void Gimbal::MotorNearestTransposition()
 {
-    // Yaw就近转位
-    float tmp_delta_angle;
-    tmp_delta_angle = fmod(target_yaw_angle_ - now_yaw_angle_, 2.0f * PI);
-    if (tmp_delta_angle > PI)
-    {
+    // 方案B：业务层不直接访问电机。就近转位基于当前姿态（imu）/目标角，等价处理：将目标 yaw 归一化到与当前 yaw 最近。
+    float tmp_delta_angle = fmodf(target_yaw_angle_ - now_yaw_angle_, 2.0f * PI);
+    if (tmp_delta_angle > PI) {
         tmp_delta_angle -= 2.0f * PI;
-    }
-    else if (tmp_delta_angle < -PI)
-    {
+    } else if (tmp_delta_angle < -PI) {
         tmp_delta_angle += 2.0f * PI;
     }
-    target_yaw_angle_ = motor_yaw_.GetNowAngle() + tmp_delta_angle;
+    target_yaw_angle_ = now_yaw_angle_ + tmp_delta_angle;
 
-    // // Pitch就近转位
-    // Math_Constrain(&target_pitch_angle_, Min_Pitch_Angle, Max_Pitch_Angle);
-    // tmp_delta_angle = target_pitch_angle_ - now_pitch_angle_;
-    // target_pitch_angle_ = -motor_pitch_.GetNowAngle() + tmp_delta_angle;
+    // pitch 保持在机械限位约束即可（由上层设定，或在 SetTargetPitchAngle 中限幅）
 }
 
 void Gimbal::TaskEntry(void *argument)
@@ -309,17 +317,106 @@ void Gimbal::TaskEntry(void *argument)
 
 void Gimbal::Task()
 {
+    // Robot -> Gimbal 指令（只取最新）
+    Subscription<orb::GimbalCmd> gimbal_cmd_sub(orb::gimbal_cmd);
+
     uint8_t first_run_flag = 0; // 用于标记是否是第一次运行
-  
+
+    // 若本周期没有新指令，则沿用上一帧（避免未初始化使用）
+    orb::GimbalCmd cmd{};
+
     for (;;)
     {
+        (void)gimbal_cmd_sub.copy(cmd);
+
+        // 命令：退出（急停/疯车保护）
+        if (cmd.request_exit) {
+            Exit();
+        }
+
+        // 传感器输入
+        SetYawImuAngle(cmd.yaw_imu_angle);
+        SetYawImuOmega(cmd.yaw_imu_omega);
+        SetPitchImuAngle(cmd.pitch_imu_angle);
+        SetPitchImuOmega(cmd.pitch_imu_omega);
+
+        // 虚拟目标
+        SetVirtualYawAngle(cmd.virtual_yaw_angle);
+        SetVirtualPitchAngle(cmd.virtual_pitch_angle);
+
+        // 控制模式/前馈/目标
+        SetYawOmegaFeedforword(cmd.yaw_omega_ff);
+        SetGimbalYawControlType((cmd.yaw_mode == orb::GimbalYawMode::Omega) ? GIMBAL_CONTROL_TYPE_OMEGA
+                                                                            : GIMBAL_CONTROL_TYPE_ANGLE);
+        if (cmd.yaw_mode == orb::GimbalYawMode::Omega) {
+            SetTargetYawOmega(cmd.target_yaw_omega);
+        }
+
+        // 命令：置零/恢复
+        if (cmd.request_yaw_zero) {
+            SetYawZero();
+        }
+        if (cmd.request_yaw_recover) {
+            orb::MotorAdminCmd admin{};
+            admin.id.bus = orb::MotorBus::CAN3;
+            admin.id.std_id = 0x12;
+            admin.op = orb::MotorAdminOp::ClearError;
+            orb::motor_admin_cmd.publish(admin);
+            admin.op = orb::MotorAdminOp::Enter;
+            orb::motor_admin_cmd.publish(admin);
+        }
+        if (cmd.request_pitch_recover) {
+            orb::MotorAdminCmd admin{};
+            admin.id.bus = orb::MotorBus::CAN3;
+            admin.id.std_id = 0x11;
+            admin.op = orb::MotorAdminOp::ClearError;
+            orb::motor_admin_cmd.publish(admin);
+            admin.op = orb::MotorAdminOp::Enter;
+            orb::motor_admin_cmd.publish(admin);
+        }
+        if (cmd.request_gimbal_recover) {
+            // yaw
+            {
+                orb::MotorAdminCmd admin{};
+                admin.id.bus = orb::MotorBus::CAN3;
+                admin.id.std_id = 0x12;
+                admin.op = orb::MotorAdminOp::ClearError;
+                orb::motor_admin_cmd.publish(admin);
+                admin.op = orb::MotorAdminOp::Enter;
+                orb::motor_admin_cmd.publish(admin);
+            }
+            // pitch
+            {
+                orb::MotorAdminCmd admin{};
+                admin.id.bus = orb::MotorBus::CAN3;
+                admin.id.std_id = 0x11;
+                admin.op = orb::MotorAdminOp::ClearError;
+                orb::motor_admin_cmd.publish(admin);
+                admin.op = orb::MotorAdminOp::Enter;
+                orb::motor_admin_cmd.publish(admin);
+            }
+        }
+
         if(first_run_flag == 0){ // 第一次运行到这里，pre_pitch_angle未初始化
             first_run_flag = 1;
             pre_pitch_angle_ = target_pitch_angle_;
         }
         SelfResolution();
+
+        // 发布 gimbal 状态（供 Robot/Chassis 解耦读取）
+        {
+            orb::GimbalState st{};
+            st.yaw_angle = GetNowYawAngle();
+            st.yaw_omega = GetNowYawOmega();
+            st.pitch_angle = GetNowPitchAngle();
+            st.pitch_omega = GetNowPitchOmega();
+            st.yaw_angle_noncumulative = GetYawNowAngleNoncumulative();
+            st.pitch_angle_noncumulative = GetPitchNowAngleNoncumulative();
+            orb::gimbal_state.publish(st);
+        }
+
         Output();
-        osDelay(pdMS_TO_TICKS(1)); // 1khz电机控制频率
+        osDelay(1); // 1khz电机控制频率
         pre_pitch_angle_ = target_pitch_angle_;
     }
 }

@@ -14,21 +14,13 @@
 
 // module
 #include "debug_tools.h"
-#include "dvc_motor_dji.h"
-#include "imu.hpp"
 
+#include "cmsis_os2.h"
 
 class Chassis
 {
 public:
-    // 底盘4个3508， 控制全向轮
-    MotorDjiC620 motor_chassis_1_,
-                 motor_chassis_2_,
-                 motor_chassis_3_,
-                 motor_chassis_4_;
-
-    DebugTools  debug_tools_;
-    void Init();
+    void Start();
     void Task();
     void Exit();
     inline void SetTargetVxInGimbal(float target_vx);
@@ -36,6 +28,8 @@ public:
     inline void SetTargetVelocityRotation(float target_velocity_rotation);
     inline void SetYawAngle(float yaw_angle);
 protected:
+    DebugTools  debug_tools_;
+
     // 云台坐标系目标速度
     float target_vx_in_gimbal_ = 0.0f;
     float target_vy_in_gimbal_ = 0.0f;
@@ -46,6 +40,9 @@ protected:
     float target_velocity_rotation_ = 0.0f;
     // 云台相对于底盘的偏航角（逆时针为正）
     float yaw_angle_ = 0.0f; 
+
+    bool started_ = false;
+    osThreadId_t thread_ = nullptr;
 
     void KinematicsInverseResolution();
     void RotationMatrixTransform();

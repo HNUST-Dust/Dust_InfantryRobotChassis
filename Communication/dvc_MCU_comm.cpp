@@ -1,30 +1,42 @@
 #include "dvc_MCU_comm.h"
-#include "cmsis_os2.h"
 #include <cstdint>
 #include <cstring>
-void McuComm::Init(
-     FDCAN_HandleTypeDef* hcan,
-     uint8_t can_rx_id,
-     uint8_t can_tx_id) 
-{
-     if (hcan->Instance == FDCAN1)
-     {
-          can_manage_object_ = &g_can1_manage_object;
-     }
-     else if (hcan->Instance == FDCAN2)
-     {
-          can_manage_object_ = &g_can2_manage_object;
-     }
 
-     can_rx_id_ = can_rx_id;
-     can_tx_id_ = can_tx_id;
-     // static const osThreadAttr_t kMcuCommTaskAttr = {
-     //      .name = "mcu_comm_task",
-     //      .stack_size = 512,
-     //      .priority = (osPriority_t) osPriorityNormal
-     // };
-     // //启动任务，将 this 传入
-     // osThreadNew(McuComm::TaskEntry, this, &kMcuCommTaskAttr);
+bool McuComm::Bind(BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
+{
+    configASSERT(started_ == false);
+    if (started_) {
+        return false;
+    }
+
+    configASSERT(can != nullptr);
+    can_handle_ = can;
+    can_rx_id_ = can_rx_id;
+    can_tx_id_ = can_tx_id;
+    return (can_handle_ != nullptr);
+}
+
+bool McuComm::Start()
+{
+    // 当前 McuComm 的“启动”语义就是启动自动发送 TxTask（原 StartAutoTx）
+    if (started_) {
+        configASSERT(false);
+        return false;
+    }
+    if (can_handle_ == nullptr) {
+        configASSERT(false);
+        return false;
+    }
+
+    StartAutoTx();
+    started_ = true;
+    return true;
+}
+
+void McuComm::Init(BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
+{
+    (void)Bind(can, can_rx_id, can_tx_id);
+    // 兼容旧逻辑：Init 后仍由外部调用 StartAutoTx/Start；这里不强制调用 Start()
 }
 
 // 任务入口（静态函数）—— osThreadNew 需要这个原型
@@ -47,82 +59,191 @@ void McuComm::Task() {
 }
 
 
-void McuComm::CanSendCommand() {
+void McuComm::StartAutoTx()
+{
+    if (auto_tx_started_) {
+        configASSERT(false);
+        return;
+    }
+    auto_tx_started_ = true;
 
-     static uint8_t can_tx_frame[16];
-     // 把 float 转换成字节
-     union { float f; uint8_t b[4]; } conv;
-     // ---- 第1帧：yaw_angle 的4个字节和 yaw_omega 的4个字节 ----
-     conv.f = mcu_send_data_.yaw_angle;
-     can_tx_frame[0] = conv.b[0];
-     can_tx_frame[1] = conv.b[1];
-     can_tx_frame[2] = conv.b[2];
-     can_tx_frame[3] = conv.b[3];
+    // 创建事件标志并绑定 notifier（静态内存，避免动态分配）
+    tx_evt_attr_ = osEventFlagsAttr_t{
+        .name = "mcu_tx_evt",
+        .cb_mem = &tx_evt_cb_,
+        .cb_size = sizeof(tx_evt_cb_),
+    };
+    tx_evt_ = osEventFlagsNew(&tx_evt_attr_);
+    if (!tx_evt_) {
+        configASSERT(false);
+        return;
+    }
 
-     conv.f = mcu_send_data_.yaw_omega;
-     can_tx_frame[4] = conv.b[0];
-     can_tx_frame[5] = conv.b[1];
-     can_tx_frame[6] = conv.b[2];
-     can_tx_frame[7] = conv.b[3];
+    tx_notifier_ = Notifier(tx_evt_, kTxEvtMask);
+    orb::gimbal_info_tx.register_notifier(&tx_notifier_);
 
-     // ---- 第2帧：pitch_angle 的4个字节和 pitch_omega 的4个字节 ----
-     conv.f = mcu_send_data_.pitch_angle;
-     can_tx_frame[8] = conv.b[0];
-     can_tx_frame[9] = conv.b[1];
-     can_tx_frame[10] = conv.b[2];
-     can_tx_frame[11] = conv.b[3];
-
-     conv.f = mcu_send_data_.pitch_omega;
-     can_tx_frame[12] = conv.b[0];
-     can_tx_frame[13] = conv.b[1];
-     can_tx_frame[14] = conv.b[2];
-     can_tx_frame[15] = conv.b[3];
-
-     // 发送第2帧（8字节）
-     fdcan_send_data(can_manage_object_->can_handler, GIMBAL_INFO_ID, can_tx_frame, 16);
+    static const osThreadAttr_t kMcuCommTxTaskAttr = {
+        .name = "mcu_tx_task",
+        .stack_size = 512,
+        .priority = (osPriority_t) osPriorityNormal,
+    };
+    tx_thread_ = osThreadNew(McuComm::TxTaskEntry, this, &kMcuCommTxTaskAttr);
+    if (!tx_thread_) {
+        configASSERT(false);
+        return;
+    }
 }
 
-void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {
-
-     mcu_comm_data_.yaw                  = rx_data[0];
-     mcu_comm_data_.pitch_angle          = rx_data[1];
-     mcu_comm_data_.chassis_speed_x      = rx_data[2];
-     mcu_comm_data_.chassis_speed_y      = rx_data[3];
-     mcu_comm_data_.chassis_rotation     = rx_data[4];
-     switch(rx_data[5])
-     {
-          case 0:
-          mcu_comm_data_.chassis_spin = CHASSIS_SPIN_CLOCKWISE;
-          break;
-          case 1:
-          mcu_comm_data_.chassis_spin = CHASSIS_SPIN_DISABLE;
-          break;
-          case 2:
-          mcu_comm_data_.chassis_spin = CHASSIS_SPIN_COUNTER_CLOCK_WISE;
-          break;
-          default:
-          mcu_comm_data_.chassis_spin = CHASSIS_SPIN_DISABLE;
-          break;
-     }
-     mcu_comm_data_.supercap             = rx_data[6];
-     mcu_comm_data_.auto_aim_flag        = rx_data[7];
-     mcu_comm_data_.reset_zero           = rx_data[8];
+void McuComm::TxTaskEntry(void *param)
+{
+    auto *self = static_cast<McuComm*>(param);
+    self->TxTask();
 }
 
-void McuComm::CanAutoAimInfoRxCpltCallback(uint8_t* rx_data) {
-     memcpy(&mcu_autoaim_data_.yaw_angle,&rx_data[0],4 * sizeof(uint8_t));
-     memcpy(&mcu_autoaim_data_.pitch_angle,&rx_data[4],4 * sizeof(uint8_t));
+void McuComm::TxTask()
+{
+    for (;;)
+    {
+        // 等待 Topic 发布唤醒
+        (void)osEventFlagsWait(tx_evt_, kTxEvtMask, osFlagsWaitAny, osWaitForever);
 
-     // memcpy(&mcu_autoaim_data_.yaw_omega,&rx_data[8],4 * sizeof(uint8_t));
-     // memcpy(&mcu_autoaim_data_.pitch_omega,&rx_data[12],4 * sizeof(uint8_t));
+        // 读出并发送所有待发数据
+        orb::GimbalInfoTx tx_msg{};
+        while (gimbal_info_tx_sub_.copy(tx_msg))
+        {
+            uint8_t can_tx_frame[16];
+            union { float f; uint8_t b[4]; } conv;
 
-     // memcpy(&mcu_autoaim_data_.yaw_torque,&rx_data[16],4 * sizeof(uint8_t));
-     // memcpy(&mcu_autoaim_data_.pitch_torque,&rx_data[20],4 * sizeof(uint8_t));
+            conv.f = tx_msg.yaw_angle;
+            can_tx_frame[0] = conv.b[0];
+            can_tx_frame[1] = conv.b[1];
+            can_tx_frame[2] = conv.b[2];
+            can_tx_frame[3] = conv.b[3];
+
+            conv.f = tx_msg.yaw_omega;
+            can_tx_frame[4] = conv.b[0];
+            can_tx_frame[5] = conv.b[1];
+            can_tx_frame[6] = conv.b[2];
+            can_tx_frame[7] = conv.b[3];
+
+            conv.f = tx_msg.pitch_angle;
+            can_tx_frame[8] = conv.b[0];
+            can_tx_frame[9] = conv.b[1];
+            can_tx_frame[10] = conv.b[2];
+            can_tx_frame[11] = conv.b[3];
+
+            conv.f = tx_msg.pitch_omega;
+            can_tx_frame[12] = conv.b[0];
+            can_tx_frame[13] = conv.b[1];
+            can_tx_frame[14] = conv.b[2];
+            can_tx_frame[15] = conv.b[3];
+
+            if (can_handle_ == nullptr) {
+                continue;
+            }
+
+            BspCanFrame tx{};
+            tx.id = orb::GIMBAL_INFO_ID;
+            tx.id_type = BSP_CAN_ID_STD;
+            tx.frame_type = BSP_CAN_FRAME_DATA;
+            tx.is_fd = true;
+            tx.brs = true;
+            tx.len = 16;
+            memcpy(tx.data, can_tx_frame, 16);
+            (void)bsp_can_send(can_handle_, &tx);
+        }
+    }
 }
 
-void McuComm::CanImuInfoRxCpltCallback(uint8_t* rx_data) {
-     memcpy(&mcu_imu_data_.yaw_total_angle_f,&rx_data[0],4 * sizeof(uint8_t));
-     memcpy(&mcu_imu_data_.pitch_f,&rx_data[4],4 * sizeof(uint8_t));
-     memcpy(&mcu_imu_data_.yaw_omega_f,&rx_data[8],4 * sizeof(uint8_t));
-     memcpy(&mcu_imu_data_.pitch_omega_f,&rx_data[12],4 * sizeof(uint8_t));
+static inline const uint8_t* frame_payload_or_null(const BspCanFrame* frame, uint8_t min_len)
+{
+    if (frame == nullptr) return nullptr;
+    if (frame->frame_type != BSP_CAN_FRAME_DATA) return nullptr;
+    if (frame->len < min_len) return nullptr;
+    return frame->data;
+}
+
+void McuComm::CanRemoteControlRxCpltCallback(const BspCanFrame* frame)
+{
+    const uint8_t* rx_data = frame_payload_or_null(frame, 9);
+    if (rx_data == nullptr) {
+        return;
+    }
+
+    mcu_comm_data_.yaw             = rx_data[0];
+    mcu_comm_data_.pitch_angle     = rx_data[1];
+    mcu_comm_data_.chassis_speed_x = rx_data[2];
+    mcu_comm_data_.chassis_speed_y = rx_data[3];
+    mcu_comm_data_.chassis_rotation = rx_data[4];
+
+    // 强类型：内部缓存也使用 orb::McuChassisSpinMode
+    switch (rx_data[5])
+    {
+        case 0: mcu_comm_data_.chassis_spin = orb::McuChassisSpinMode::Clockwise; break;
+        case 1: mcu_comm_data_.chassis_spin = orb::McuChassisSpinMode::Disable; break;
+        case 2: mcu_comm_data_.chassis_spin = orb::McuChassisSpinMode::CounterClockwise; break;
+        default: mcu_comm_data_.chassis_spin = orb::McuChassisSpinMode::Disable; break;
+    }
+
+    // 强类型：内部缓存也使用 orb::SupercapUserCmd
+    switch (rx_data[6])
+    {
+        case 0: mcu_comm_data_.supercap = orb::SupercapUserCmd::Charge; break;
+        case 1: mcu_comm_data_.supercap = orb::SupercapUserCmd::Discharge; break;
+        default: mcu_comm_data_.supercap = orb::SupercapUserCmd::Charge; break;
+    }
+
+    mcu_comm_data_.auto_aim_flag = rx_data[7];
+    mcu_comm_data_.reset_zero    = rx_data[8];
+
+    // Publish to topic
+    orb::McuControl msg{};
+    msg.yaw = mcu_comm_data_.yaw;
+    msg.pitch_angle = mcu_comm_data_.pitch_angle;
+    msg.chassis_speed_x = mcu_comm_data_.chassis_speed_x;
+    msg.chassis_speed_y = mcu_comm_data_.chassis_speed_y;
+    msg.chassis_rotation = mcu_comm_data_.chassis_rotation;
+    msg.chassis_spin = mcu_comm_data_.chassis_spin;
+    msg.supercap = mcu_comm_data_.supercap;
+    msg.auto_aim_flag = mcu_comm_data_.auto_aim_flag;
+    msg.reset_zero = mcu_comm_data_.reset_zero;
+    mcu_control_pub_.publish(msg);
+}
+
+void McuComm::CanAutoAimInfoRxCpltCallback(const BspCanFrame* frame)
+{
+    const uint8_t* rx_data = frame_payload_or_null(frame, 8);
+    if (rx_data == nullptr) {
+        return;
+    }
+
+    memcpy(&mcu_autoaim_data_.yaw_angle, &rx_data[0], 4);
+    memcpy(&mcu_autoaim_data_.pitch_angle, &rx_data[4], 4);
+
+    // Publish to topic
+    orb::McuAutoAim msg{};
+    msg.yaw_angle = mcu_autoaim_data_.yaw_angle;
+    msg.pitch_angle = mcu_autoaim_data_.pitch_angle;
+    mcu_autoaim_pub_.publish(msg);
+}
+
+void McuComm::CanImuInfoRxCpltCallback(const BspCanFrame* frame)
+{
+    const uint8_t* rx_data = frame_payload_or_null(frame, 16);
+    if (rx_data == nullptr) {
+        return;
+    }
+
+    memcpy(&mcu_imu_data_.yaw_total_angle_f, &rx_data[0], 4);
+    memcpy(&mcu_imu_data_.pitch_f, &rx_data[4], 4);
+    memcpy(&mcu_imu_data_.yaw_omega_f, &rx_data[8], 4);
+    memcpy(&mcu_imu_data_.pitch_omega_f, &rx_data[12], 4);
+
+    // Publish to topic
+    orb::McuImu msg{};
+    msg.yaw_total_angle_f = mcu_imu_data_.yaw_total_angle_f;
+    msg.pitch_f = mcu_imu_data_.pitch_f;
+    msg.yaw_omega_f = mcu_imu_data_.yaw_omega_f;
+    msg.pitch_omega_f = mcu_imu_data_.pitch_omega_f;
+    mcu_imu_pub_.publish(msg);
 }

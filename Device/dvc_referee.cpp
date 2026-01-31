@@ -4,14 +4,70 @@
 #include "projdefs.h"
 #include <cstdint>
 #include <cstring>
-void Referee::Init()
+#include "ui.h"
+// Topic pub-sub
+#include "../communication_topic/device_topics.hpp"
+
+bool Referee::Bind(BspUartHandle uart)
 {
+    // 严格策略：已启动后不允许重新绑定，避免竞态/发送到错误串口。
+    configASSERT(started_ == false);
+    if (started_) {
+        return false;
+    }
+
+    configASSERT(uart != nullptr);
+    uart_ = uart;
+    return (uart_ != nullptr);
+}
+
+bool Referee::Start()
+{
+    // 幂等：只允许启动一次
+    if (started_) {
+        configASSERT(false);
+        return false;
+    }
+
+    // 必须先 Bind
+    if (uart_ == nullptr) {
+        configASSERT(false);
+        return false;
+    }
+
     static const osThreadAttr_t kRefereeTaskAttr = {
         .name = "referee_task",
         .stack_size = 512,
         .priority = (osPriority_t) osPriorityNormal
     };
-    osThreadNew(Referee::TaskEntry, this, &kRefereeTaskAttr);
+    thread_ = osThreadNew(Referee::TaskEntry, this, &kRefereeTaskAttr);
+    if (!thread_) {
+        configASSERT(false);
+        return false;
+    }
+
+    started_ = true;
+    return true;
+}
+
+void Referee::Init(BspUartHandle uart)
+{
+    (void)Bind(uart);
+    (void)Start();
+}
+
+void Referee::Init()
+{
+    // Prefer Platform init; RX is already started in Bsp_BringUp via bsp_uart_init.
+    Init(bsp_uart_get(BSP_UART1));
+}
+
+bool Referee::Send(uint8_t* data, uint16_t length)
+{
+    if (uart_ == nullptr) {
+        return false;
+    }
+    return bsp_uart_send(uart_, data, length);
 }
 
 void Referee::TaskEntry(void *param)
@@ -32,15 +88,36 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
     uint16_t payload_len = (length > 2) ? (length - 2) : 0;
 
     if (msg_id == kStatusDataId && payload_len >= sizeof(StatusData)) {
-        UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-        std::memcpy(&status_, payload, sizeof(StatusData));
-        ui_update_requested_ = true; 
-        taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
-    } else if (msg_id == kShootDataId && payload_len >= sizeof(ShootData)) {
-        UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-        std::memcpy(&shoot_, payload, sizeof(ShootData));
+        StatusData s{};
+        std::memcpy(&s, payload, sizeof(StatusData));
+
+        // Topic 发布（业务层订阅读取）
+        orb::RefereeStatus out{};
+        out.id = s.id;
+        out.level = s.level;
+        out.current_hp = s.current_hp;
+        out.max_hp = s.max_hp;
+        out.shooter_barrel_cooling_value = s.shooter_barrel_cooling_value;
+        out.shooter_barrel_heat_limit = s.shooter_barrel_heat_limit;
+        out.chassis_power_limit = s.chassis_power_limit;
+        out.power_management_gimbal_output = s.power_management_gimbal_output;
+        out.power_management_chassis_output = s.power_management_chassis_output;
+        out.power_management_shooter_output = s.power_management_shooter_output;
+        orb::referee_status.publish(out);
+
         ui_update_requested_ = true;
-        taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
+    } else if (msg_id == kShootDataId && payload_len >= sizeof(ShootData)) {
+        ShootData sh{};
+        std::memcpy(&sh, payload, sizeof(ShootData));
+
+        orb::RefereeShoot out{};
+        out.bullet_type = sh.bullet_type;
+        out.shooter_number = sh.shooter_number;
+        out.launching_frequency = sh.launching_frequency;
+        out.initial_speed = sh.initial_speed;
+        orb::referee_shoot.publish(out);
+
+        ui_update_requested_ = true;
     }
 }
 
@@ -59,7 +136,7 @@ void Referee::Task()
         taskEXIT_CRITICAL();
 
         if (do_update) {
-            FreshDynamicUI();
+            // FreshDynamicUI();
         }
 
         // ui_booster_off_now_strings->color = 0;

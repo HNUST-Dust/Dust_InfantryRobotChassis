@@ -1,8 +1,20 @@
 #ifndef DEVICE_SUPERCAP_H_
 #define DEVICE_SUPERCAP_H_
 
-#include "bsp_can.h"
 #include <cstdint>
+
+// Platform (HAL-free) CAN abstraction
+#include "bsp_can_port.h"
+
+#include "cmsis_os2.h"
+
+extern "C" {
+#include "FreeRTOS.h"
+#include "event_groups.h"
+}
+
+// Topic notify
+#include "../communication_topic/topic_notify.hpp"
 
 /**
  * @brief 超级电容状态
@@ -61,8 +73,19 @@ struct SupercapSendData
 class Supercap
 {
 public:
+    // 依赖注入（HAL-free）
+    bool Bind(
+        BspCanHandle can,
+        uint16_t can_rx_id = 0x100,
+        uint16_t can_tx_id = 0x001
+    );
+
+    // 启动任务（只做 RTOS 资源创建）
+    bool Start();
+
+    // Backward-compatible init (HAL-free)
     void Init(
-        FDCAN_HandleTypeDef *hcan,
+        BspCanHandle can,
         uint16_t can_rx_id = 0x100,
         uint16_t can_tx_id = 0x001
     );
@@ -77,62 +100,63 @@ public:
 
     inline uint8_t GetBatteryVoltage();
 
-    inline void SetEnableStatus(SupercapStatus supercap_enable_status);
-
-    inline void SetChargeStatus(SupercapStatus supercap_charge_status);
-
-    inline void SetPowerLimitMax(uint8_t power_limit_max);
-
-    inline void SetChargePower(uint8_t charge_power);
-
-    void CanRxCpltCallback(uint8_t *rx_data);
+    // Platform RX (HAL-free): feed a decoded CAN frame
+    void CanRxCpltCallback(const BspCanFrame *frame);
 
     void AlivePeriodElapsedCallback();
 
+    // legacy: keep periodic hook (internally publishes Topic)
     void SendPeriodElapsedCallback();
 
     void Task();
 protected:
-    CanManageObject *can_manage_object_ = nullptr;
+    // Platform CAN handle（preferred）
+    BspCanHandle can_handle_ = nullptr;
+
     uint16_t can_rx_id_ = 0x100;
     uint16_t can_tx_id_ = 0x003;
     SupercapRecivedData recived_data_ = {};
     uint32_t flag_ = 0;
     uint32_t pre_flag_ = 0;
 
-    // 发送给超级电容的使能/失能状态
+    // ——以下为内部状态（不再对外提供 SetXXX 接口，必须通过 Topic 控制）——
     SupercapStatus supercap_enable_status_ = SUPERCAP_STATUS_DISABLE;
-    
-    // 接收到的超级电容真实的工作状态
     SupercapStatus supercap_work_status_ = SUPERCAP_STATUS_DISABLE;
-
-    // 超级电容充放电状态
     SupercapStatus supercap_charge_status_ = SUPERCAP_STATUS_CHARGE;
-    
-    // 超级电容状态码
     SupercapStatusCode supercap_status_code_ = {};
-
-    // 底盘功率上限
     uint8_t power_limit_max_ = 0;
-    
-    // 充电功率
     uint8_t charge_power_ = 0;
-    
-    // 超级电容剩余能量百分比
     uint8_t supercap_energy_percent_ = 0;
-
-    // 底盘消耗功率
     uint8_t chassis_power_ = 0;
-
-    // 电池电压
     uint8_t battery_voltage_ = 0;
-
-    // 超级电容可以补偿的最大功率值
     uint8_t power_compensate_max_ = 150.0f;
 
     void DataProcess();
     void Output();
-    static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
+    static void TaskEntry(void *param);
+
+    osThreadId_t thread_ = nullptr;
+
+    StaticTask_t tcb_{};
+    StackType_t stack_[512]{};
+
+    // ===== Topic 化发送：发布即自动发送 =====
+    static void TxTaskEntry(void *param);
+    void TxTask();
+
+    osThreadId_t tx_thread_ = nullptr;
+
+    StaticTask_t tx_tcb_{};
+    StackType_t tx_stack_[384]{};
+
+    osEventFlagsId_t tx_event_flags_ = nullptr;
+    StaticEventGroup_t tx_evt_cb_{};
+    osEventFlagsAttr_t tx_evt_attr_{};
+
+    static constexpr uint32_t kTxEventFlagBit = 1u << 0;
+    Notifier tx_notifier_{nullptr, kTxEventFlagBit};
+
+    bool started_ = false;
 
 };
 
@@ -184,46 +208,6 @@ inline uint8_t Supercap::GetChassisCompensatePower()
 inline uint8_t Supercap::GetBatteryVoltage()
 {
     return (recived_data_.battery_voltage);
-}
-
-/**
- * @brief 设置超级电容使能状态
- * 
- * @param supercap_enable_status 
- */
-inline void Supercap::SetEnableStatus(SupercapStatus supercap_enable_status)
-{
-    supercap_enable_status_ = supercap_enable_status;
-}
-
-/**
- * @brief 设置超级电容充放电状态
- * 
- * @param supercap_charge_status 
- */
-inline void Supercap::SetChargeStatus(SupercapStatus supercap_charge_status)
-{
-    supercap_charge_status_ = supercap_charge_status;
-}
-
-/**
- * @brief 设置底盘功率上限
- * 
- * @param power_limit_max 
- */
-inline void Supercap::SetPowerLimitMax(uint8_t power_limit_max)
-{
-    power_limit_max_ = power_limit_max;
-}
-
-/**
- * @brief 设置充电功率
- * 
- * @param charge_power 
- */
-inline void Supercap::SetChargePower(uint8_t charge_power)
-{
-    charge_power_ = charge_power;
 }
 
 #endif // !DEVICE_SUPERCAP_H_

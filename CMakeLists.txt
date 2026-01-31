@@ -54,6 +54,8 @@ endif ()
 include_directories(
         Board/dm-h723/
         Board/dm-h723/Inc 
+        Platform/
+        System/
         ThirdParty/STM32H7xx_HAL_Driver/Inc 
         ThirdParty/STM32H7xx_HAL_Driver/Inc/Legacy 
         ThirdParty/FreeRTOS/Source/include 
@@ -93,7 +95,12 @@ file(
     "Drivers/*.*" 
     "Algorithm/*.*"
     "Device/*.*"
+    "Platform/*.*"
+    "System/*.*"
 )
+
+# NOTE: Legacy Communication wrappers have been removed from this repo.
+# Keep this list simple; if older legacy files are reintroduced, handle them in the template generator.
 
 set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/Board/dm-h723/STM32H723VGTX_FLASH.ld)
 

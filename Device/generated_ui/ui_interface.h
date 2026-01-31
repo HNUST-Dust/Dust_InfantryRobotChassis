@@ -25,4 +25,8 @@ void ui_delete_layer(const uint8_t delete_type, const uint8_t layer);
 
 void ui_scan_and_send(const ui_interface_figure_t* ui_now_figures, uint8_t* ui_dirty_figure, const ui_interface_string_t* ui_now_strings, uint8_t* ui_dirty_string, int total_figures, int total_strings);
 
+// Optional: UI Tx 可以由外部模块初始化并启动 UiTxTask（推荐在 Modules_BringUp）。
+// generated_ui 内部仍通过 print_message/SEND_MESSAGE 发布发送请求。
+void ui_tx_topic_init();
+
 #endif //UI_INTERFACE_H

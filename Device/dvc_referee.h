@@ -1,25 +1,44 @@
 #pragma  once
-#include "stdlib.h"
 #include "stdint.h"
-#include "ui.h"
+
+#include "bsp_uart_port.h"
+
+// Topic pub-sub
+#include "../communication_topic/device_topics.hpp"
+#include "../communication_topic/topic_pubsub.hpp"
 
 class Referee{
 public:
+    // 依赖注入（HAL-free）
+    // 返回 false 表示拒绝此次绑定（例如已启动后不允许重新 Bind）
+    bool Bind(BspUartHandle uart);
+
+    // 启动任务（只做 RTOS 资源创建）
+    // 返回 false 表示启动失败或已启动
+    bool Start();
+
+    // Backward-compatible init wrappers
+    void Init(BspUartHandle uart);
     void Init();
+
     void Task();
     void FreshDynamicUI();
     void FreshStaticUI();
+
+    // Optional: send raw bytes via bound UART
+    bool Send(uint8_t* data, uint16_t length);
+
     void RxCpltCallback(uint8_t *buffer, uint16_t length);
 
-    // 只对外暴露需要的字段（按需添加）
-    uint16_t GetCurrentHp() const { return status_.current_hp; }
-    uint16_t GetMaxHp() const { return status_.max_hp; }
-    uint16_t GetChassisPowerLimit() const { return status_.chassis_power_limit; }
-    bool IsGimbalPowerOn() const { return status_.power_management_gimbal_output != 0; }
+    // 只对外暴露需要的字段（从 Topic 拉取最新值；未更新则返回上次缓存）
+    uint16_t GetCurrentHp() { (void)status_sub_.copy(status_cache_); return status_cache_.current_hp; }
+    uint16_t GetMaxHp() { (void)status_sub_.copy(status_cache_); return status_cache_.max_hp; }
+    uint16_t GetChassisPowerLimit() { (void)status_sub_.copy(status_cache_); return status_cache_.chassis_power_limit; }
+    bool IsGimbalPowerOn() { (void)status_sub_.copy(status_cache_); return status_cache_.power_management_gimbal_output != 0; }
 
-    uint8_t GetBulletType() const { return shoot_.bullet_type; }
-    uint8_t GetLaunchingFrequency() const { return shoot_.launching_frequency; }
-    float GetInitialSpeed() const { return shoot_.initial_speed; }
+    uint8_t GetBulletType() { (void)shoot_sub_.copy(shoot_cache_); return shoot_cache_.bullet_type; }
+    uint8_t GetLaunchingFrequency() { (void)shoot_sub_.copy(shoot_cache_); return shoot_cache_.launching_frequency; }
+    float GetInitialSpeed() { (void)shoot_sub_.copy(shoot_cache_); return shoot_cache_.initial_speed; }
 
 private:
     static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
@@ -63,4 +82,16 @@ private:
     ShootData shoot_{};
     // ISR 中只设置该标志，Task 中处理实际的 UI 更新
     volatile bool ui_update_requested_ = false;
+
+    BspUartHandle uart_ = nullptr;
+
+    osThreadId_t thread_ = nullptr;
+
+    bool started_ = false;
+
+    // Topic 订阅（任务侧/接口侧拉取）
+    Sub<orb::RefereeStatus> status_sub_{orb::referee_status};
+    Sub<orb::RefereeShoot> shoot_sub_{orb::referee_shoot};
+    orb::RefereeStatus status_cache_{};
+    orb::RefereeShoot shoot_cache_{};
 };

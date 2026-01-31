@@ -1,12 +1,14 @@
 #ifndef DEBUG_TOOLS_H_
 #define DEBUG_TOOLS_H_
 
-#include "stm32h7xx_hal.h"
+#include <cstdint>
+#include "bsp_uart_port.h"
 
 class DebugTools
 {
 
 private:
+    BspUartHandle uart_ = nullptr;
 
 public:
     void VofaInit();

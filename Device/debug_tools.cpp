@@ -1,44 +1,34 @@
 #include "debug_tools.h"
+
 #include <cstdint>
 #include <cstring>
-#include "stm32h7xx_hal_uart.h"
-#include "usart.h"
-#include "bsp_usart.h"
-#include "cmsis_os.h"
+
+#include "../communication_topic/debug_topics.hpp"
 
 void DebugTools::VofaInit(){
-
+    // VOFA 发送改为 Topic 化：由 VofaTxTask 统一异步发送。
 }
 
 void DebugTools::VofaSendFloat(float data)
 {
-    // 等待 DMA 空闲
-    while (!g_uart7_manage_object.tx_cplt_flag);
-    memcpy(g_uart7_manage_object.tx_buffer, &data, sizeof(float));
-    // uart_send_data(&huart7, data_buf, 4);
-    // taskENTER_CRITICAL();
-    g_uart7_manage_object.tx_cplt_flag = false;
-    HAL_UART_Transmit_DMA(
-        g_uart7_manage_object.uart_handler, 
-        g_uart7_manage_object.tx_buffer, 
-        4*sizeof(uint8_t)
-    );
-    // taskEXIT_CRITICAL();
+    orb::VofaTx pkt{};
+    static_assert(sizeof(float) == 4, "VOFA float must be 4 bytes");
+    std::memcpy(pkt.bytes, &data, sizeof(pkt.bytes));
+    orb::vofa_tx.publish(pkt);
 }
 
 void DebugTools::VofaSendTail()
 {
-    static uint8_t tail[4] = {0x00,0x00,0x80,0x7f};
-    // uart_send_data(&huart7, tail, 4);
-    while (!g_uart7_manage_object.tx_cplt_flag);
-    // taskENTER_CRITICAL();
-    g_uart7_manage_object.tx_cplt_flag = false;
-    HAL_UART_Transmit_DMA(g_uart7_manage_object.uart_handler, tail, 4*sizeof(uint8_t));
-    // taskEXIT_CRITICAL();
-
+    orb::VofaTx pkt{};
+    pkt.bytes[0] = 0x00;
+    pkt.bytes[1] = 0x00;
+    pkt.bytes[2] = 0x80;
+    pkt.bytes[3] = 0x7f;
+    orb::vofa_tx.publish(pkt);
 }
 
 void DebugTools::VofaReceiveCallback(uint8_t *buffer, uint16_t length)
 {
-
+    (void)buffer;
+    (void)length;
 }

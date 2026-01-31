@@ -9,11 +9,11 @@
 extern "C" {
 #endif
 
-void Init();
-
+// Legacy entry (kept for CubeMX generated freertos.c)
+void Init(void);
 
 #ifdef __cplusplus
-};
+}
 #endif
 
-#endif //INIT_H
+#endif // INIT_H

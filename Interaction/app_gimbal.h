@@ -13,9 +13,11 @@
 
 // module
 #include "debug_tools.h"
-#include "dvc_motor_dm.h"
+#include "alg_pid.h"
 #include "interpolation.hpp"
 #include "low_pass_filter.hpp"
+
+#include "cmsis_os2.h"
 
 // #define YAW_ENCODER_MODE  
 #define YAW_IMU_MODE      
@@ -41,25 +43,7 @@ class Gimbal
 {
 public:
 
-    // 2个DM6220，作为云台Yaw和Pitch轴控制电机
-    MotorDmNormal motor_yaw_;
-    MotorDmNormal motor_pitch_;
-
-    Interpolation pitch_angle_interpolation; // pitch角插补类实例
-
-    // 云台yaw轴角度环pid
-    Pid yaw_angle_pid_;
-    // 云台pitch轴角度环pid
-    Pid pitch_angle_pid_;
-    // 云台yaw轴速度环pid
-    Pid yaw_omega_pid_;
-    // 云台pitch轴速度环pid
-    Pid pitch_omega_pid_;
-
-    LowPassFilter yaw_omega_filter_;
-    LowPassFilter pitch_omega_filter_;
-
-    void Init();
+    void Start();
     void Task();
     void Exit();
     void SetYawZero();
@@ -183,6 +167,9 @@ public:
     }
 
 protected:
+    bool started_ = false;
+    osThreadId_t thread_ = nullptr;
+
     DebugTools debug_tools_;
 
     // pitch轴最小值
@@ -258,10 +245,23 @@ protected:
     // pitch imu 角速度
     float imu_pitch_omega_ = 0.0f;
 
+    // PID（业务层仍负责计算目标 omega 等）
+    Pid yaw_angle_pid_{};
+    Pid pitch_angle_pid_{};
+    Pid yaw_omega_pid_{};
+    Pid pitch_omega_pid_{};
+
+    // 低通滤波器
+    LowPassFilter yaw_omega_filter_{};
+    LowPassFilter pitch_omega_filter_{};
+
+    // pitch 角度插值器（保留原逻辑）
+    Interpolation pitch_angle_interpolation{};
+
     void SelfResolution();
     void MotorNearestTransposition();
     void Output();
-    static void TaskEntry(void *param);
+    static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
 };
 
 /**

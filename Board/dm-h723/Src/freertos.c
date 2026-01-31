@@ -22,7 +22,7 @@
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
-#include "Init.h"
+#include "system_startup.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 /* USER CODE END Includes */
@@ -117,12 +117,11 @@ void StartDefaultTask(void *argument)
   /* init code for USB_DEVICE */
   MX_USB_DEVICE_Init();
   /* USER CODE BEGIN StartDefaultTask */
-  Init();
-  /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+
+  // Run staged bring-up once, then exit.
+  System_Boot();
+
+  osThreadExit();
   /* USER CODE END StartDefaultTask */
 }
 
