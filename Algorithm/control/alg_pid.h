@@ -13,20 +13,42 @@
 
 /* Includes ------------------------------------------------------------------*/
 
-#include "./alg_math.h"
+#include "math/alg_math.h"
+
+#include <cstdint>
 
 /* Exported macros -----------------------------------------------------------*/
 
 /* Exported types ------------------------------------------------------------*/
 
+namespace alg {
+
 /**
  * @brief 微分先行
- *
  */
-enum DFirst
-{
-    PID_D_First_DISABLE = 0,
-    PID_D_First_ENABLE,
+enum class DFirst : uint8_t {
+    Disable = 0,
+    Enable,
+};
+
+struct PidConfig {
+    float kp = 0.0f;
+    float ki = 0.0f;
+    float kd = 0.0f;
+    float kf = 0.0f;
+
+    float i_out_max = 0.0f;
+    float out_max = 0.0f;
+
+    float dt = 0.001f;
+    float dead_zone = 0.0f;
+
+    float i_variable_speed_A = 0.0f;
+    float i_variable_speed_B = 0.0f;
+    float i_separate_threshold = 0.0f;
+
+    DFirst d_first = DFirst::Disable;
+    float d_lpf_tau = 0.0f;
 };
 
 /**
@@ -36,6 +58,13 @@ enum DFirst
 class Pid
 {
 public:
+        void configure(const PidConfig& cfg);
+
+        void reset();
+
+        float update(float target, float now);
+        float update_angle(float target, float now);
+
     void Init(float k_p, 
               float k_i,
               float k_d, 
@@ -47,7 +76,7 @@ public:
               float i_variable_apeed_A = 0.0f, 
               float i_variable_speed_B = 0.0f, 
               float i_separate_threshold = 0.0f, 
-              DFirst d_first = PID_D_First_DISABLE,
+                            DFirst d_first = DFirst::Disable,
               float d_lpf_tau = 0.0f
             );
 
@@ -137,6 +166,8 @@ protected:
 
     //内部函数
 };
+
+}  // namespace alg
 
 /* Exported variables --------------------------------------------------------*/
 

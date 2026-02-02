@@ -1,10 +1,6 @@
 #include "ui_interface.h"
-
-#include "../ui_tx_task.h"
-
-// 可选初始化：把 UiTxTask 拉起（默认 UART1）。
-// 注意：如果系统启动流程里已统一 Init，则这里可不调用。
+// 说明：UART 发送已统一收口到 UartTxTask（在 Modules_BringUp 启动）。
+// 这里保留空函数以兼容旧工程入口。
 void ui_tx_topic_init() {
-    static UiTxTask s_ui_tx_task;
-    s_ui_tx_task.Init(BSP_UART1);
+    // no-op
 }

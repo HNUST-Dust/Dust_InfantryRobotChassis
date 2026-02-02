@@ -8,7 +8,29 @@
 // Topic pub-sub
 #include "../communication_topic/device_topics.hpp"
 
-bool Referee::Bind(BspUartHandle uart)
+#include "../communication_topic/uart_topics.hpp"
+
+#include "bsp_dwt.h"
+#include "../daemon_supervisor/supervisor.hpp"
+
+namespace {
+inline uint32_t now_ms()
+{
+    return static_cast<uint32_t>(dwt_get_timeline_ms());
+}
+
+void referee_daemon_fault(DaemonClient&) {}
+
+DaemonClient* s_referee_daemon = nullptr;
+} // namespace
+
+Referee& Referee_Instance()
+{
+    static Referee inst;
+    return inst;
+}
+
+bool Referee::Bind(BspUartHandle uart, orb::UartPort tx_port)
 {
     // 严格策略：已启动后不允许重新绑定，避免竞态/发送到错误串口。
     configASSERT(started_ == false);
@@ -18,7 +40,13 @@ bool Referee::Bind(BspUartHandle uart)
 
     configASSERT(uart != nullptr);
     uart_ = uart;
+    tx_port_ = tx_port;
     return (uart_ != nullptr);
+}
+
+bool Referee::Bind(BspUartHandle uart)
+{
+    return Bind(uart, orb::UartPort::U1);
 }
 
 bool Referee::Start()
@@ -46,6 +74,21 @@ bool Referee::Start()
         return false;
     }
 
+    // Online criterion: receiving fresh referee UART frames.
+    {
+        static DaemonClient daemon(
+            500,
+            referee_daemon_fault,
+            this,
+            DaemonClient::Domain::COMM,
+            DaemonClient::FaultLevel::WARN,
+            DaemonClient::Priority::NORMAL);
+        s_referee_daemon = &daemon;
+        (void)DaemonSupervisor::register_client(s_referee_daemon);
+        // Baseline timestamp; subsequent feed is driven by RxCpltCallback.
+        s_referee_daemon->feed(now_ms());
+    }
+
     started_ = true;
     return true;
 }
@@ -67,7 +110,21 @@ bool Referee::Send(uint8_t* data, uint16_t length)
     if (uart_ == nullptr) {
         return false;
     }
-    return bsp_uart_send(uart_, data, length);
+
+    if (data == nullptr || length == 0) {
+        return false;
+    }
+    if (length > 256) {
+        return false;
+    }
+
+    orb::UartTxFrame pkt{};
+    pkt.port = tx_port_;
+    pkt.len = length;
+    std::memcpy(pkt.bytes, data, length);
+    pkt.throttle_ms = 0;
+    orb::uart_tx.publish(pkt);
+    return true;
 }
 
 void Referee::TaskEntry(void *param)
@@ -105,6 +162,10 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
         out.power_management_shooter_output = s.power_management_shooter_output;
         orb::referee_status.publish(out);
 
+        if (s_referee_daemon) {
+            s_referee_daemon->feed(now_ms());
+        }
+
         ui_update_requested_ = true;
     } else if (msg_id == kShootDataId && payload_len >= sizeof(ShootData)) {
         ShootData sh{};
@@ -116,6 +177,10 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
         out.launching_frequency = sh.launching_frequency;
         out.initial_speed = sh.initial_speed;
         orb::referee_shoot.publish(out);
+
+        if (s_referee_daemon) {
+            s_referee_daemon->feed(now_ms());
+        }
 
         ui_update_requested_ = true;
     }

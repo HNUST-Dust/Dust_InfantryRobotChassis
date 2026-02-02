@@ -15,7 +15,7 @@
 
 #include "stdint.h"
 #include "BMI088driver.h"
-#include "QuaternionEKF.h"
+#include "estimation/QuaternionEKF.h"
 
 #define X 0
 #define Y 1

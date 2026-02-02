@@ -2,6 +2,8 @@
 
 #include "alg_pid.h"
 
+namespace alg {
+
 /* Private macros ------------------------------------------------------------*/
 
 /* Private types -------------------------------------------------------------*/
@@ -35,7 +37,7 @@ void Pid::Init(
     float i_variable_speed_A, 
     float i_variable_speed_B, 
     float i_separate_threshold, 
-    enum DFirst d_first,
+    DFirst d_first,
     float d_lpf_tau
 )
 {
@@ -52,6 +54,51 @@ void Pid::Init(
     i_separate_threshold_ = i_separate_threshold;
     d_first_ = d_first;
     d_lpf_tau_ = d_lpf_tau;
+}
+
+void Pid::configure(const PidConfig& cfg)
+{
+    Init(cfg.kp,
+         cfg.ki,
+         cfg.kd,
+         cfg.kf,
+         cfg.i_out_max,
+         cfg.out_max,
+         cfg.dt,
+         cfg.dead_zone,
+         cfg.i_variable_speed_A,
+         cfg.i_variable_speed_B,
+         cfg.i_separate_threshold,
+         cfg.d_first,
+         cfg.d_lpf_tau);
+}
+
+void Pid::reset()
+{
+    pre_now_ = 0.0f;
+    pre_target_ = 0.0f;
+    pre_out_ = 0.0f;
+    pre_error_ = 0.0f;
+
+    out_ = 0.0f;
+    integral_error_ = 0.0f;
+    d_lpf_output_ = 0.0f;
+}
+
+float Pid::update(float target, float now)
+{
+    SetTarget(target);
+    SetNow(now);
+    CalculatePeriodElapsedCallback();
+    return GetOut();
+}
+
+float Pid::update_angle(float target, float now)
+{
+    SetTarget(target);
+    SetNow(now);
+    CalculateAnglePid();
+    return GetOut();
 }
 
 /**
@@ -295,7 +342,7 @@ void Pid::CalculatePeriodElapsedCallback()
 
     // 计算d项
 
-    if (d_first_ == PID_D_First_DISABLE)
+    if (d_first_ == DFirst::Disable)
     {
         d_raw = k_d_ * (error - pre_error_) / d_t_;
     }
@@ -447,7 +494,7 @@ void Pid::CalculateAnglePid()
     /*----------------------------------------
      * 5. D项
      *----------------------------------------*/
-    if (d_first_ == PID_D_First_DISABLE)
+    if (d_first_ == DFirst::Disable)
     {
         d_out = k_d_ * (error - pre_error_) / d_t_;
     }
@@ -479,5 +526,7 @@ void Pid::CalculateAnglePid()
     pre_out_ = out_;
     pre_error_ = error;
 }
+
+}  // namespace alg
 
 /************************ COPYRIGHT(C) HNUST-DUST **************************/

@@ -2,10 +2,33 @@
 #include "cmsis_os.h"
 #include <cstdint>
 
+#include "../communication_topic/can_topics.hpp"
+
+#include "bsp_dwt.h"
+#include "../daemon_supervisor/supervisor.hpp"
+
+namespace {
+inline uint32_t now_ms()
+{
+    return static_cast<uint32_t>(dwt_get_timeline_ms());
+}
+
+void supercap_daemon_fault(DaemonClient&) {}
+
+DaemonClient* s_supercap_daemon = nullptr;
+} // namespace
+
 // Topic pub-sub
 #include "../communication_topic/device_topics.hpp"
+#include "../communication_topic/mcu_topics.hpp"
 
-bool Supercap::Bind(BspCanHandle can, uint16_t can_rx_id, uint16_t can_tx_id)
+Supercap& Supercap_Instance()
+{
+    static Supercap inst;
+    return inst;
+}
+
+bool Supercap::Bind(orb::CanBus bus, BspCanHandle can, uint16_t can_rx_id, uint16_t can_tx_id)
 {
     configASSERT(started_ == false);
     if (started_) {
@@ -14,6 +37,7 @@ bool Supercap::Bind(BspCanHandle can, uint16_t can_rx_id, uint16_t can_tx_id)
 
     configASSERT(can != nullptr);
     can_handle_ = can;
+    tx_bus_ = bus;
     can_rx_id_ = can_rx_id;
     can_tx_id_ = can_tx_id;
 
@@ -82,6 +106,21 @@ bool Supercap::Start()
         return false;
     }
 
+    // Online criterion: receiving fresh CAN frames from external supercap.
+    {
+        static DaemonClient daemon(
+            500,
+            supercap_daemon_fault,
+            this,
+            DaemonClient::Domain::POWER,
+            DaemonClient::FaultLevel::DEGRADED,
+            DaemonClient::Priority::HIGH);
+        s_supercap_daemon = &daemon;
+        (void)DaemonSupervisor::register_client(s_supercap_daemon);
+        // Baseline timestamp; subsequent feed is driven by CanRxCpltCallback.
+        s_supercap_daemon->feed(now_ms());
+    }
+
     started_ = true;
     return true;
 }
@@ -94,11 +133,12 @@ bool Supercap::Start()
  * @param can_tx_id 
  */
 void Supercap::Init(
+    orb::CanBus bus,
     BspCanHandle can,
     uint16_t can_rx_id,
     uint16_t can_tx_id)
 {
-    (void)Bind(can, can_rx_id, can_tx_id);
+    (void)Bind(bus, can, can_rx_id, can_tx_id);
     (void)Start();
 }
 
@@ -127,6 +167,10 @@ void Supercap::CanRxCpltCallback(const BspCanFrame *frame)
 
     if (frame->len < sizeof(SupercapRecivedData)) {
         return;
+    }
+
+    if (s_supercap_daemon) {
+        s_supercap_daemon->feed(now_ms());
     }
 
     // sliding window / alive
@@ -198,14 +242,11 @@ void Supercap::TxTask()
 
         orb::SupercapTx msg{};
         while (sub.copy(msg)) {
-            if (can_handle_ == nullptr) {
-                continue;
-            }
-
-            BspCanFrame frame{};
+            orb::CanTxFrame frame{};
+            frame.bus = tx_bus_;
             frame.id = can_tx_id_;
-            frame.id_type = BSP_CAN_ID_STD;
-            frame.frame_type = BSP_CAN_FRAME_DATA;
+            frame.id_type = orb::CanIdType::Std;
+            frame.frame_type = orb::CanFrameType::Data;
             frame.is_fd = false;
             frame.brs = false;
             frame.len = 8;
@@ -214,20 +255,33 @@ void Supercap::TxTask()
             frame.data[1] = static_cast<uint8_t>(msg.supercap_charge_status);
             frame.data[2] = msg.power_limit_max;
             frame.data[3] = msg.charge_power;
-            frame.data[4] = 0;
-            frame.data[5] = 0;
-            frame.data[6] = 0;
-            frame.data[7] = 0;
 
-            (void)bsp_can_send(can_handle_, &frame);
+            orb::can_tx.publish(frame);
         }
     }
 }
 
 void Supercap::Task()
 {
+    // Distributed: Supercap takes user command directly from mcu_control
+    Subscription<orb::McuControl> mcu_control_sub(orb::mcu_control);
+    orb::McuControl mcu{};
+
     for (;;)
     {
+        (void)mcu_control_sub.copy(mcu);
+
+        // keep enabled by default
+        supercap_enable_status_ = SUPERCAP_STATUS_ENABLE;
+
+        supercap_charge_status_ = (mcu.supercap == orb::SupercapUserCmd::Charge)
+                                     ? SUPERCAP_STATUS_CHARGE
+                                     : SUPERCAP_STATUS_DISCHARGE;
+
+        // legacy fixed params
+        power_limit_max_ = 100;
+        charge_power_ = 50;
+
         AlivePeriodElapsedCallback();
         // 这里仍保留周期发送：内部转为 publish -> 自动发送
         SendPeriodElapsedCallback();

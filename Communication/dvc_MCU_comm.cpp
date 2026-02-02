@@ -2,7 +2,29 @@
 #include <cstdint>
 #include <cstring>
 
-bool McuComm::Bind(BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
+#include "../communication_topic/can_topics.hpp"
+
+#include "bsp_dwt.h"
+#include "../daemon_supervisor/supervisor.hpp"
+
+namespace {
+inline uint32_t now_ms()
+{
+    return static_cast<uint32_t>(dwt_get_timeline_ms());
+}
+
+void mcu_comm_daemon_fault(DaemonClient&) {}
+
+DaemonClient* s_mcu_comm_daemon = nullptr;
+} // namespace
+
+McuComm& McuComm_Instance()
+{
+    static McuComm inst;
+    return inst;
+}
+
+bool McuComm::Bind(orb::CanBus bus, BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
 {
     configASSERT(started_ == false);
     if (started_) {
@@ -11,6 +33,7 @@ bool McuComm::Bind(BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
 
     configASSERT(can != nullptr);
     can_handle_ = can;
+    tx_bus_ = bus;
     can_rx_id_ = can_rx_id;
     can_tx_id_ = can_tx_id;
     return (can_handle_ != nullptr);
@@ -28,14 +51,29 @@ bool McuComm::Start()
         return false;
     }
 
+    // Online criterion: receiving fresh CAN data from external MCU.
+    {
+        static DaemonClient daemon(
+            200,
+            mcu_comm_daemon_fault,
+            this,
+            DaemonClient::Domain::COMM,
+            DaemonClient::FaultLevel::FATAL,
+            DaemonClient::Priority::CRITICAL);
+        s_mcu_comm_daemon = &daemon;
+        (void)DaemonSupervisor::register_client(s_mcu_comm_daemon);
+        // Baseline timestamp; subsequent feed is driven by actual RX callbacks.
+        s_mcu_comm_daemon->feed(now_ms());
+    }
+
     StartAutoTx();
     started_ = true;
     return true;
 }
 
-void McuComm::Init(BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
+void McuComm::Init(orb::CanBus bus, BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
 {
-    (void)Bind(can, can_rx_id, can_tx_id);
+    (void)Bind(bus, can, can_rx_id, can_tx_id);
     // 兼容旧逻辑：Init 后仍由外部调用 StartAutoTx/Start；这里不强制调用 Start()
 }
 
@@ -138,19 +176,17 @@ void McuComm::TxTask()
             can_tx_frame[14] = conv.b[2];
             can_tx_frame[15] = conv.b[3];
 
-            if (can_handle_ == nullptr) {
-                continue;
-            }
-
-            BspCanFrame tx{};
+            orb::CanTxFrame tx{};
+            tx.bus = tx_bus_;
             tx.id = orb::GIMBAL_INFO_ID;
-            tx.id_type = BSP_CAN_ID_STD;
-            tx.frame_type = BSP_CAN_FRAME_DATA;
+            tx.id_type = orb::CanIdType::Std;
+            tx.frame_type = orb::CanFrameType::Data;
             tx.is_fd = true;
             tx.brs = true;
             tx.len = 16;
-            memcpy(tx.data, can_tx_frame, 16);
-            (void)bsp_can_send(can_handle_, &tx);
+            std::memset(tx.data, 0, sizeof(tx.data));
+            std::memcpy(tx.data, can_tx_frame, 16);
+            orb::can_tx.publish(tx);
         }
     }
 }
@@ -168,6 +204,10 @@ void McuComm::CanRemoteControlRxCpltCallback(const BspCanFrame* frame)
     const uint8_t* rx_data = frame_payload_or_null(frame, 9);
     if (rx_data == nullptr) {
         return;
+    }
+
+    if (s_mcu_comm_daemon) {
+        s_mcu_comm_daemon->feed(now_ms());
     }
 
     mcu_comm_data_.yaw             = rx_data[0];
@@ -217,6 +257,10 @@ void McuComm::CanAutoAimInfoRxCpltCallback(const BspCanFrame* frame)
         return;
     }
 
+    if (s_mcu_comm_daemon) {
+        s_mcu_comm_daemon->feed(now_ms());
+    }
+
     memcpy(&mcu_autoaim_data_.yaw_angle, &rx_data[0], 4);
     memcpy(&mcu_autoaim_data_.pitch_angle, &rx_data[4], 4);
 
@@ -232,6 +276,10 @@ void McuComm::CanImuInfoRxCpltCallback(const BspCanFrame* frame)
     const uint8_t* rx_data = frame_payload_or_null(frame, 16);
     if (rx_data == nullptr) {
         return;
+    }
+
+    if (s_mcu_comm_daemon) {
+        s_mcu_comm_daemon->feed(now_ms());
     }
 
     memcpy(&mcu_imu_data_.yaw_total_angle_f, &rx_data[0], 4);

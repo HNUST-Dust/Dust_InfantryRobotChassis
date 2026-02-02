@@ -20,7 +20,8 @@
 #include "string.h"
 #include "stdlib.h"
 #include "bsp_dwt.h"
-#include "user_lib.h"
+#include "utils/alg_constrain.h"
+#include "utils/alg_ols.h"
 #include "arm_math.h"
 #include <math.h>
 

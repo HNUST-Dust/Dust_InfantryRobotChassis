@@ -54,12 +54,6 @@ void DmMitMin::OnRx(const uint8_t data[8]) {
     now_angle_ = uint_to_float(angle_u16, -cfg_.angle_max, cfg_.angle_max, 16);
     now_omega_ = uint_to_float(omega_u12, -cfg_.omega_max, cfg_.omega_max, 12);
     now_torque_ = uint_to_float(torque_u12, -cfg_.torque_max, cfg_.torque_max, 12);
-
-    // mirror into State
-    st_.angle = now_angle_;
-    st_.omega = now_omega_;
-    st_.torque = now_torque_;
-    st_.online = true;
 }
 
 void DmMitMin::SetControl(float angle, float omega, float torque) {
@@ -91,15 +85,20 @@ void DmMitMin::PackMit(float p, float v, float kp, float kd, float t, uint8_t ou
 void DmMitMin::PublishFrame(uint16_t std_id, const uint8_t data[8], uint8_t len) {
     if (!can_) return;
 
-    orb::DmTxFrame f{};
+    orb::CanTxFrame f{};
     f.bus = cfg_.bus;
-    f.std_id = std_id;
+    f.id = std_id;
+    f.id_type = orb::CanIdType::Std;
+    f.frame_type = orb::CanFrameType::Data;
+    f.is_fd = false;
+    f.brs = false;
     f.len = len;
-    std::memset(f.data, 0, 8);
+    std::memset(f.data, 0, sizeof(f.data));
     if (len > 0) {
-        std::memcpy(f.data, data, (len <= 8) ? len : 8);
+        const uint8_t n = (len <= 8) ? len : 8;
+        std::memcpy(f.data, data, n);
     }
-    orb::dm_tx_frame.publish(f);
+    orb::can_tx.publish(f);
 }
 
 void DmMitMin::PublishMitTx(float kp, float kd) {
@@ -127,29 +126,6 @@ void DmMitMin::ClearError() {
 void DmMitMin::SaveZero() {
     const uint8_t data[8] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE};
     PublishFrame(static_cast<uint16_t>(cfg_.base_std_id) | (cfg_.can_rx_id & 0x0F), data, 8);
-}
-
-void DmMitMin::SetCmd(const actuator::Cmd& cmd) {
-    cmd_ = cmd;
-    switch (cmd.mode) {
-    case actuator::Mode::Angle:
-        ctrl_angle_ = cmd.target_angle;
-        break;
-    case actuator::Mode::Omega:
-        ctrl_omega_ = cmd.target_omega;
-        break;
-    case actuator::Mode::Current:
-    case actuator::Mode::Torque:
-        ctrl_torque_ = (cmd.target_current != 0.0f) ? cmd.target_current : cmd.target_torque;
-        break;
-    default:
-        // keep angle, but zero command outputs
-        ctrl_omega_ = 0.0f;
-        ctrl_torque_ = 0.0f;
-        break;
-    }
-
-    SetControl(ctrl_angle_, ctrl_omega_, ctrl_torque_);
 }
 
 } // namespace actuator::drivers

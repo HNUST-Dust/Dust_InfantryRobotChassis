@@ -3,6 +3,8 @@
 
 #include "bsp_uart_port.h"
 
+#include "../communication_topic/uart_topics.hpp"
+
 // Topic pub-sub
 #include "../communication_topic/device_topics.hpp"
 #include "../communication_topic/topic_pubsub.hpp"
@@ -12,6 +14,9 @@ public:
     // 依赖注入（HAL-free）
     // 返回 false 表示拒绝此次绑定（例如已启动后不允许重新 Bind）
     bool Bind(BspUartHandle uart);
+
+    // TX 端口可配：用于把 Send() 输出路由到统一 UartTxTask
+    bool Bind(BspUartHandle uart, orb::UartPort tx_port);
 
     // 启动任务（只做 RTOS 资源创建）
     // 返回 false 表示启动失败或已启动
@@ -84,6 +89,7 @@ private:
     volatile bool ui_update_requested_ = false;
 
     BspUartHandle uart_ = nullptr;
+    orb::UartPort tx_port_ = orb::UartPort::U1;
 
     osThreadId_t thread_ = nullptr;
 
@@ -95,3 +101,6 @@ private:
     orb::RefereeStatus status_cache_{};
     orb::RefereeShoot shoot_cache_{};
 };
+
+// Module singleton accessor (no Context/service-locator layer)
+Referee& Referee_Instance();

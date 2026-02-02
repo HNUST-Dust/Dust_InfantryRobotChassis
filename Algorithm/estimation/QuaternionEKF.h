@@ -12,7 +12,7 @@
  */
 #ifndef _QUAT_EKF_H
 #define _QUAT_EKF_H
-#include "kalman_filter.h"
+#include "filter/kalman_filter.h"
 
 /* boolean type definitions */
 #ifndef TRUE

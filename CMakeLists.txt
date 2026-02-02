@@ -75,8 +75,10 @@ include_directories(
         Device/generated_ui/
         Communication/
         Drivers/
+    daemon_supervisor/
         ThirdParty/SEGGER/Config
         ThirdParty/SEGGER/RTT
+        Platform/
 )
 
 add_definitions(
@@ -95,6 +97,7 @@ file(
     "Drivers/*.*" 
     "Algorithm/*.*"
     "Device/*.*"
+    "daemon_supervisor/*.*"
     "Platform/*.*"
     "System/*.*"
 )
@@ -105,6 +108,9 @@ file(
 set(LINKER_SCRIPT ${CMAKE_SOURCE_DIR}/Board/dm-h723/STM32H723VGTX_FLASH.ld)
 
 add_link_options(-Wl,-gc-sections,--print-memory-usage,-Map=${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    add_link_options(-Wl,--no-warn-rwx-segments)
+endif()
 add_link_options(-mcpu=cortex-m7 -mthumb -mthumb-interwork)
 add_link_options(-T ${LINKER_SCRIPT})
 

@@ -3,14 +3,12 @@
 #include <cstdint>
 
 #include "../../../Platform/bsp_can_port.h"
-#include "../../../Algorithm/alg_pid.h"
-#include "../../../communication_topic/motor_topics.hpp"
-
-#include "../actuator_iface.hpp"
+#include "control/alg_pid.h"
+#include "../../../communication_topic/can_topics.hpp"
 
 namespace actuator::drivers {
 
-class DjiC6xxMin final : public actuator::IActuator {
+class DjiC6xxMin final {
 public:
     enum class ControlMethod : uint8_t {
         Current = 0,
@@ -18,7 +16,7 @@ public:
     };
 
     struct Config {
-        orb::MotorBus bus = orb::MotorBus::CAN1;
+        orb::CanBus bus = orb::CanBus::CAN1;
         uint16_t rx_std_id = 0x201;
         float gearbox_ratio = 1.0f;
         ControlMethod method = ControlMethod::Omega;
@@ -40,8 +38,8 @@ public:
 
     void Update();
 
-    // publish to orb::dji_current_group_cmd
-    void PublishTxTopic();
+    // DJI 组帧使用的 raw 电流（16-bit signed, big-endian per slot）
+    int16_t target_current_raw() const;
 
     float now_angle_rad() const { return now_angle_rad_; }
     float now_omega_out_rad_s() const { return now_omega_out_rad_s_; }
@@ -50,13 +48,8 @@ public:
 
     float target_current_a() const { return target_current_a_; }
 
-    // ===== IActuator =====
-    void Bind(BspCanHandle can) override { can_ = can; }
-    void OnRx(const BspCanFrame* frame) override { OnRx(frame->data); }
-    void SetCmd(const actuator::Cmd& cmd) override;
-    void Update(float /*dt_s*/) override { Update(); }
-    void PublishTx() override { PublishTxTopic(); }
-    const actuator::State& GetState() const override { return st_; }
+    orb::CanBus bus() const { return cfg_.bus; }
+    uint16_t rx_std_id() const { return cfg_.rx_std_id; }
 
 private:
     static constexpr float k2pi = 6.283185307179586f;
@@ -74,10 +67,7 @@ private:
     float target_omega_out_rad_s_ = 0.0f;
     float target_current_a_ = 0.0f;
 
-    Pid pid_omega_{};
-
-    actuator::Cmd cmd_{};
-    actuator::State st_{};
+    alg::Pid pid_omega_{};
 };
 
 } // namespace actuator::drivers

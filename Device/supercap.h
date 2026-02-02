@@ -6,6 +6,8 @@
 // Platform (HAL-free) CAN abstraction
 #include "bsp_can_port.h"
 
+#include "../communication_topic/can_topics.hpp"
+
 #include "cmsis_os2.h"
 
 extern "C" {
@@ -75,6 +77,7 @@ class Supercap
 public:
     // 依赖注入（HAL-free）
     bool Bind(
+        orb::CanBus bus,
         BspCanHandle can,
         uint16_t can_rx_id = 0x100,
         uint16_t can_tx_id = 0x001
@@ -85,6 +88,7 @@ public:
 
     // Backward-compatible init (HAL-free)
     void Init(
+        orb::CanBus bus,
         BspCanHandle can,
         uint16_t can_rx_id = 0x100,
         uint16_t can_tx_id = 0x001
@@ -112,6 +116,9 @@ public:
 protected:
     // Platform CAN handle（preferred）
     BspCanHandle can_handle_ = nullptr;
+
+    // TX publish target bus (unified CanTxTask)
+    orb::CanBus tx_bus_ = orb::CanBus::CAN1;
 
     uint16_t can_rx_id_ = 0x100;
     uint16_t can_tx_id_ = 0x003;
@@ -159,6 +166,9 @@ protected:
     bool started_ = false;
 
 };
+
+// Module singleton accessor (no Context/service-locator layer)
+Supercap& Supercap_Instance();
 
 /**
  * @brief 获取超级电容在线状态

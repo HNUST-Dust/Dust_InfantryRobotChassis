@@ -4,11 +4,12 @@
 //
 
 #include <cstdint>
+#include <cstring>
 #include <string.h>
 #include <stdio.h>
 #include "ui_interface.h"
 
-#include "../communication_topic/ui_topics.hpp"
+#include "../communication_topic/uart_topics.hpp"
 
 uint8_t seq = 0;
 int ui_self_id = 3;
@@ -21,18 +22,19 @@ ui_7_frame_t _ui_7_frame;
 
 void print_message(const uint8_t *message, const int length) {
 
-    // Topic 化：UI 发送由 UiTxTask 异步串行输出（HAL-free）
+    // Topic 化：UI 发送由 UartTxTask 异步串行输出（HAL-free）
     if (message == nullptr || length <= 0) {
         return;
     }
 
-    orb::UiTxFrame pkt{};
+    orb::UartTxFrame pkt{};
+    pkt.port = orb::UartPort::U1;
+    pkt.throttle_ms = 10;
+
     const uint16_t n = (length > (int)sizeof(pkt.bytes)) ? (uint16_t)sizeof(pkt.bytes) : (uint16_t)length;
     pkt.len = n;
     std::memcpy(pkt.bytes, message, n);
-    orb::ui_tx.publish(pkt);
-
-    // NOTE: 节流/延时不再放在生成侧；如果需要节流，放到 TxTask 或上层调用频率控制。
+    orb::uart_tx.publish(pkt);
 }
 
 const unsigned char CRC8_TAB[256] = {

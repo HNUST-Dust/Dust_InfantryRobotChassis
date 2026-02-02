@@ -9,23 +9,20 @@
 #include "../communication_topic/topic_notify.hpp"
 
 namespace orb {
-struct DjiCurrentGroupCmd;
+struct CanTxFrame;
 }  // namespace orb
 
 template<typename T, int DEPTH>
 class RingSub;
 
-template<typename T, int DEPTH>
-class RingTopic;
+// 统一 CAN 发送任务：
+// - 订阅 orb::can_tx（通用帧）
+// - 唯一允许调用 bsp_can_send 的模块
 
-// CAN 电机发送任务：订阅 Topic 队列，将语义化 cmd 打包成 CAN 帧并发送。
-// 当前先实现 DJI 0x200 组（底盘 4x3508 常用）。
-
-class CanMotorTxTask {
+class CanTxTask {
 public:
     bool Start();
 
-    // Backward-compatible name
     void Init() { (void)Start(); }
 
 private:

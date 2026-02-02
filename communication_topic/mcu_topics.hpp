@@ -11,7 +11,7 @@ enum class McuChassisSpinMode : uint8_t {
     CounterClockwise = 2,
 };
 
-// 超级电容用户命令（强类型，避免 Robot 使用 0/1 魔法值）
+// 超级电容用户命令（强类型，避免 0/1 魔法值）
 enum class SupercapUserCmd : uint8_t {
     Charge = 0,
     Discharge = 1,

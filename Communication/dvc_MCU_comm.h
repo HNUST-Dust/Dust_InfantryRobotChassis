@@ -17,6 +17,8 @@
 // Platform (HAL-free) CAN abstraction
 #include "bsp_can_port.h"
 
+#include "../communication_topic/can_topics.hpp"
+
 // Topic pub-sub
 #include "../communication_topic/topic_pubsub.hpp"
 #include "../communication_topic/mcu_topics.hpp"
@@ -98,6 +100,7 @@ public:
 
     // 依赖注入（HAL-free）
     bool Bind(
+        orb::CanBus bus,
         BspCanHandle can,
         uint8_t can_rx_id,
         uint8_t can_tx_id
@@ -108,6 +111,7 @@ public:
 
     // Backward-compatible init wrappers
     void Init(
+        orb::CanBus bus,
         BspCanHandle can,
         uint8_t can_rx_id,
         uint8_t can_tx_id
@@ -126,6 +130,9 @@ public:
 protected:
     // Platform CAN handle
     BspCanHandle can_handle_ = nullptr;
+
+    // TX publish target bus (unified CanTxTask)
+    orb::CanBus tx_bus_ = orb::CanBus::CAN1;
 
     // 收数据绑定的CAN ID
     uint16_t can_rx_id_;
@@ -166,5 +173,8 @@ protected:
     // FreeRTOS 入口，静态函数
     static void TaskEntry(void *param);
 };
+
+// Module singleton accessor (no Context/service-locator layer)
+McuComm& McuComm_Instance();
 
 #endif //MODULES_COMM_DVC_MCU_COMM_H

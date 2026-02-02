@@ -2,8 +2,8 @@
 
 #include "topic.hpp"
 
-// Gimbal -> 其他模块（Robot/Chassis）状态 Topic
-// 用于切断对 Gimbal 对象的直接读取依赖（例如 Robot 中用 GetNowYawAngle 给 Chassis 喂 yaw）。
+// Gimbal -> 其他模块状态 Topic
+// 用于切断对 Gimbal 对象的直接读取依赖（通过订阅状态 Topic 获取姿态）。
 //
 // 说明：这里用 Topic<T> 只保留最新值，适合状态类数据。
 

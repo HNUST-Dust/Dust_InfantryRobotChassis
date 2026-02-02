@@ -1,13 +1,38 @@
 #include "motor_actuator_task.h"
 
-#include "../communication_topic/motor_topics.hpp"
-#include "../communication_topic/dm_motor_topics.hpp"
+#include "../communication_topic/can_topics.hpp"
 
 #include <cstring>
 
+#include "bsp_dwt.h"
+#include "../daemon_supervisor/supervisor.hpp"
+
+namespace {
+inline uint32_t now_ms()
+{
+    return static_cast<uint32_t>(dwt_get_timeline_ms());
+}
+
+void motor_actuator_daemon_fault(DaemonClient&)
+{
+    // Best-effort: request DM motors to Exit.
+    orb::GimbalDmAdminCmd admin{};
+    admin.op = orb::GimbalDmAdminOp::BothExit;
+    orb::gimbal_dm_admin_cmd.publish(admin);
+}
+
+DaemonClient* s_motor_actuator_daemon = nullptr;
+} // namespace
+
+MotorActuatorTask& MotorActuatorTask_Instance()
+{
+    static MotorActuatorTask inst;
+    return inst;
+}
+
 // (legacy) local helpers removed: task now uses cfg_.items[i].bus/std_id directly
 
-uint8_t MotorActuatorTask::FindIndexByIdCached(orb::MotorBus bus, uint16_t std_id) const
+uint8_t MotorActuatorTask::FindIndexByIdCached(orb::CanBus bus, uint16_t std_id) const
 {
     // last-hit cache
     if (last_hit_index_ < id_index_size_) {
@@ -28,7 +53,7 @@ uint8_t MotorActuatorTask::FindIndexByIdCached(orb::MotorBus bus, uint16_t std_i
     return 0xFF;
 }
 
-void MotorActuatorTask::OnCanRx(orb::MotorBus bus, const BspCanFrame* frame)
+void MotorActuatorTask::OnCanRx(orb::CanBus bus, const BspCanFrame* frame)
 {
     if (!frame) {
         return;
@@ -52,20 +77,22 @@ void MotorActuatorTask::OnCanRx(orb::MotorBus bus, const BspCanFrame* frame)
         return;
     }
 
+    // Online criterion: receiving expected motor feedback frames.
+    if (s_motor_actuator_daemon) {
+        s_motor_actuator_daemon->feed(now_ms());
+    }
+
     // Dispatch by type: minimal drivers expect raw payload
     const auto& item = cfg_.items[idx];
     switch (item.type) {
-    case actuator::Type::DjiC620:
-        if (actuators_[idx]) {
-            // dji driver: OnRx(uint8_t[8])
-            static_cast<actuator::drivers::DjiC6xxMin*>(actuators_[idx])->OnRx(frame->data);
-            PublishStateFor(bus, static_cast<uint16_t>(item.std_id), actuators_[idx]->GetState());
+    case motor_cfg::Type::DjiC620:
+        if (dji_ptr_[idx]) {
+            dji_ptr_[idx]->OnRx(frame->data);
         }
         break;
-    case actuator::Type::DmNormal:
-        if (actuators_[idx]) {
-            static_cast<actuator::drivers::DmMitMin*>(actuators_[idx])->OnRx(frame->data);
-            PublishStateFor(bus, static_cast<uint16_t>(item.std_id), actuators_[idx]->GetState());
+    case motor_cfg::Type::DmNormal:
+        if (dm_ptr_[idx]) {
+            dm_ptr_[idx]->OnRx(frame->data);
         }
         break;
     default:
@@ -73,44 +100,12 @@ void MotorActuatorTask::OnCanRx(orb::MotorBus bus, const BspCanFrame* frame)
     }
 }
 
-actuator::IActuator* MotorActuatorTask::FindById(orb::MotorBus bus, uint16_t std_id)
-{
-    const uint8_t idx = FindIndexByIdCached(bus, std_id);
-    if (idx == 0xFF) {
-        return nullptr;
-    }
-    return actuators_[idx];
-}
-
-const actuator::Item* MotorActuatorTask::FindItemById(orb::MotorBus bus, uint16_t std_id) const
-{
-    const uint8_t idx = FindIndexByIdCached(bus, std_id);
-    if (idx == 0xFF) {
-        return nullptr;
-    }
-    return &cfg_.items[idx];
-}
-
-void MotorActuatorTask::PublishStateFor(orb::MotorBus bus, uint16_t std_id, const actuator::State& st)
-{
-    orb::MotorState s{};
-    s.id.bus = bus;
-    s.id.std_id = std_id;
-    s.current = st.current;
-    s.omega = st.omega;
-    s.angle = st.angle;
-    s.temperature = st.temperature;
-    s.online = st.online;
-
-    orb::motor_state.publish(s);
-}
-
-BspCanHandle MotorActuatorTask::GetCanHandle(orb::MotorBus bus) const
+BspCanHandle MotorActuatorTask::GetCanHandle(orb::CanBus bus) const
 {
     switch (bus) {
-    case orb::MotorBus::CAN1: return can1_;
-    case orb::MotorBus::CAN2: return can2_;
-    case orb::MotorBus::CAN3: return can3_;
+    case orb::CanBus::CAN1: return can1_;
+    case orb::CanBus::CAN2: return can2_;
+    case orb::CanBus::CAN3: return can3_;
     default: return nullptr;
     }
 }
@@ -141,8 +136,23 @@ bool MotorActuatorTask::Start() {
     configASSERT(can1_ != nullptr);
     configASSERT(can3_ != nullptr);
 
+    // Actuator layer is core: monitor as CRITICAL and treat offline as FATAL.
+    {
+        static DaemonClient daemon(
+            200,
+            motor_actuator_daemon_fault,
+            this,
+            DaemonClient::Domain::CONTROL,
+            DaemonClient::FaultLevel::FATAL,
+            DaemonClient::Priority::CRITICAL);
+        s_motor_actuator_daemon = &daemon;
+        (void)DaemonSupervisor::register_client(s_motor_actuator_daemon);
+        s_motor_actuator_daemon->feed(now_ms());
+    }
+
     for (uint8_t i = 0; i < kMaxActuators; ++i) {
-        actuators_[i] = nullptr;
+        dji_ptr_[i] = nullptr;
+        dm_ptr_[i] = nullptr;
     }
 
     id_index_size_ = 0;
@@ -155,35 +165,35 @@ bool MotorActuatorTask::Start() {
         const auto& item = cfg_.items[i];
 
         // index entry for any valid (bus,std_id)
-        if (item.type != actuator::Type::None && item.std_id != 0) {
+        if (item.type != motor_cfg::Type::None && item.std_id != 0) {
             for (uint8_t j = 0; j < id_index_size_; ++j) {
                 const auto& e = id_index_[j];
-                if (e.bus == static_cast<orb::MotorBus>(item.bus) && e.std_id == static_cast<uint16_t>(item.std_id)) {
+                if (e.bus == item.bus && e.std_id == item.std_id) {
                     configASSERT(false);
                 }
             }
             if (id_index_size_ < kMaxActuators) {
-                id_index_[id_index_size_++] = IdIndex{static_cast<orb::MotorBus>(item.bus), static_cast<uint16_t>(item.std_id), i};
+                id_index_[id_index_size_++] = IdIndex{item.bus, item.std_id, i};
             }
         }
 
         // construct driver instance pointers
         switch (item.type) {
-        case actuator::Type::DjiC620:
+        case motor_cfg::Type::DjiC620:
             if (dji_used < static_cast<uint8_t>(sizeof(dji_impl_) / sizeof(dji_impl_[0]))) {
-                actuators_[i] = &dji_impl_[dji_used++];
+                dji_ptr_[i] = &dji_impl_[dji_used++];
             } else {
                 configASSERT(false);
             }
             break;
-        case actuator::Type::DmNormal:
+        case motor_cfg::Type::DmNormal:
             if (dm_used < static_cast<uint8_t>(sizeof(dm_impl_) / sizeof(dm_impl_[0]))) {
-                actuators_[i] = &dm_impl_[dm_used++];
+                dm_ptr_[i] = &dm_impl_[dm_used++];
             } else {
                 configASSERT(false);
             }
             break;
-        case actuator::Type::None:
+        case motor_cfg::Type::None:
             break;
         default:
             configASSERT(false);
@@ -191,40 +201,34 @@ bool MotorActuatorTask::Start() {
         }
 
         // bind/configure now (no second pass)
-        if (!actuators_[i]) {
+        if (!dji_ptr_[i] && !dm_ptr_[i]) {
             continue;
         }
 
-        BspCanHandle can = nullptr;
-        switch (item.bus) {
-        case actuator::Bus::CAN1: can = can1_; break;
-        case actuator::Bus::CAN2: can = can2_; break;
-        case actuator::Bus::CAN3: can = can3_; break;
-        default: break;
-        }
+        BspCanHandle can = GetCanHandle(item.bus);
         configASSERT(can != nullptr);
 
-        if (item.type == actuator::Type::DjiC620) {
+        if (item.type == motor_cfg::Type::DjiC620) {
             auto c = item.dji;
-            c.bus = static_cast<orb::MotorBus>(item.bus);
-            c.rx_std_id = static_cast<uint16_t>(item.std_id);
-            static_cast<actuator::drivers::DjiC6xxMin*>(actuators_[i])->Init(can, c);
-            static_cast<actuator::drivers::DjiC6xxMin*>(actuators_[i])->SetTargetOmega(0.0f);
-        } else if (item.type == actuator::Type::DmNormal) {
+            c.bus = item.bus;
+            c.rx_std_id = item.std_id;
+            dji_ptr_[i]->Init(can, c);
+            dji_ptr_[i]->SetTargetOmega(0.0f);
+        } else if (item.type == motor_cfg::Type::DmNormal) {
             auto c = item.dm;
-            c.bus = static_cast<orb::DmBus>(item.bus);
+            c.bus = item.bus;
             c.can_rx_id = static_cast<uint8_t>(item.std_id & 0x0Fu);
-            static_cast<actuator::drivers::DmMitMin*>(actuators_[i])->Init(can, c);
+            dm_ptr_[i]->Init(can, c);
         }
     }
 
     // DM bring-up sequence (generic)
     for (uint8_t i = 0; i < kMaxActuators; ++i) {
         const auto& it = cfg_.items[i];
-        if (it.type != actuator::Type::DmNormal) continue;
-        if (!actuators_[i]) continue;
+        if (it.type != motor_cfg::Type::DmNormal) continue;
+        if (!dm_ptr_[i]) continue;
 
-        auto* dm = static_cast<actuator::drivers::DmMitMin*>(actuators_[i]);
+        auto* dm = dm_ptr_[i];
         dm->ClearError();
         osDelay(cfg_.delay_clear_error_ms);
         dm->Enter();
@@ -240,8 +244,9 @@ bool MotorActuatorTask::Start() {
     configASSERT(evt_ != nullptr);
 
     notifier_ = Notifier(evt_, kEvtBit);
-    orb::motor_cmd.register_notifier(&notifier_);
-    orb::motor_admin_cmd.register_notifier(&notifier_);
+    orb::chassis_wheel_omega_cmd.register_notifier(&notifier_);
+    orb::gimbal_dm_target.register_notifier(&notifier_);
+    orb::gimbal_dm_admin_cmd.register_notifier(&notifier_);
 
     const osThreadAttr_t attr{
         .name = "motor_act",
@@ -262,61 +267,165 @@ void MotorActuatorTask::Task() {
     for (;;) {
         (void)osEventFlagsWait(evt_, kEvtBit, osFlagsWaitAny, 1);
 
-        // 0) motor admin cmds (new API)
+        // A) app-level chassis wheel omega cmds
         {
-            orb::MotorAdminCmd cmd{};
-            while (motor_admin_sub_.copy(cmd)) {
-                const uint8_t idx = FindIndexByIdCached(cmd.id.bus, cmd.id.std_id);
-                if (idx == 0xFF) {
+            orb::ChassisWheelOmegaCmd cmd{};
+            while (chassis_wheel_sub_.copy(cmd)) {
+                if (cmd.wheel >= 4) {
                     continue;
                 }
-                if (cfg_.items[idx].type != actuator::Type::DmNormal) {
+                const uint8_t item_index = cfg_.chassis_wheel_index[cmd.wheel];
+                if (item_index >= kMaxActuators) {
                     continue;
                 }
-                if (!actuators_[idx]) {
+                if (cfg_.items[item_index].type != motor_cfg::Type::DjiC620) {
+                    continue;
+                }
+                if (!dji_ptr_[item_index]) {
                     continue;
                 }
 
-                auto* dm = static_cast<actuator::drivers::DmMitMin*>(actuators_[idx]);
-                switch (cmd.op) {
-                case orb::MotorAdminOp::Enter: dm->Enter(); break;
-                case orb::MotorAdminOp::Exit: dm->Exit(); break;
-                case orb::MotorAdminOp::ClearError: dm->ClearError(); break;
-                case orb::MotorAdminOp::SaveZero: dm->SaveZero(); break;
+                dji_ptr_[item_index]->SetTargetOmega(cmd.omega);
+                dji_ptr_[item_index]->Update();
+                // DJI 组帧的实际 publish 在后续统一完成（避免单电机 publish 把其他电机清零）。
+            }
+        }
+
+        // B) app-level gimbal targets
+        {
+            orb::GimbalDmTarget t{};
+            while (gimbal_dm_target_sub_.copy(t)) {
+                const uint8_t yaw_idx = cfg_.gimbal_yaw_index;
+                if (yaw_idx < kMaxActuators && cfg_.items[yaw_idx].type == motor_cfg::Type::DmNormal && dm_ptr_[yaw_idx]) {
+                    dm_ptr_[yaw_idx]->SetControl(t.yaw_angle, t.yaw_omega, t.yaw_torque);
+                    dm_ptr_[yaw_idx]->PublishMitTx(t.kp, t.kd);
+                }
+
+                const uint8_t pit_idx = cfg_.gimbal_pitch_index;
+                if (pit_idx < kMaxActuators && cfg_.items[pit_idx].type == motor_cfg::Type::DmNormal && dm_ptr_[pit_idx]) {
+                    dm_ptr_[pit_idx]->SetControl(t.pitch_angle, t.pitch_omega, t.pitch_torque);
+                    dm_ptr_[pit_idx]->PublishMitTx(t.kp, t.kd);
+                }
+            }
+        }
+
+        // C) app-level gimbal admin
+        {
+            orb::GimbalDmAdminCmd c{};
+            while (gimbal_dm_admin_sub_.copy(c)) {
+                const uint8_t yaw_idx = cfg_.gimbal_yaw_index;
+                const uint8_t pit_idx = cfg_.gimbal_pitch_index;
+
+                auto* yaw = (yaw_idx < kMaxActuators) ? dm_ptr_[yaw_idx] : nullptr;
+                auto* pit = (pit_idx < kMaxActuators) ? dm_ptr_[pit_idx] : nullptr;
+
+                switch (c.op) {
+                case orb::GimbalDmAdminOp::YawEnter: if (yaw) yaw->Enter(); break;
+                case orb::GimbalDmAdminOp::YawExit: if (yaw) yaw->Exit(); break;
+                case orb::GimbalDmAdminOp::YawClearError: if (yaw) yaw->ClearError(); break;
+                case orb::GimbalDmAdminOp::YawSaveZero: if (yaw) yaw->SaveZero(); break;
+                case orb::GimbalDmAdminOp::PitchEnter: if (pit) pit->Enter(); break;
+                case orb::GimbalDmAdminOp::PitchExit: if (pit) pit->Exit(); break;
+                case orb::GimbalDmAdminOp::PitchClearError: if (pit) pit->ClearError(); break;
+                case orb::GimbalDmAdminOp::BothEnter: if (yaw) yaw->Enter(); if (pit) pit->Enter(); break;
+                case orb::GimbalDmAdminOp::BothExit: if (yaw) yaw->Exit(); if (pit) pit->Exit(); break;
+                case orb::GimbalDmAdminOp::BothClearError: if (yaw) yaw->ClearError(); if (pit) pit->ClearError(); break;
                 default: break;
                 }
             }
         }
 
-        // 1) handle motor_cmds (new API)
+        // D) publish DJI group frames (0x200/0x1FF/0x2FF)
         {
-            orb::MotorCmd cmd{};
-            while (motor_cmd_sub_.copy(cmd)) {
-                const uint8_t idx = FindIndexByIdCached(cmd.id.bus, cmd.id.std_id);
-                if (idx == 0xFF) continue;
-                if (!actuators_[idx]) continue;
+            auto pack_i16_be = [](uint8_t* p, int16_t v) {
+                p[0] = static_cast<uint8_t>((v >> 8) & 0xFF);
+                p[1] = static_cast<uint8_t>(v & 0xFF);
+            };
 
-                const auto& item = cfg_.items[idx];
-                if (item.type == actuator::Type::DjiC620) {
-                    auto* m = static_cast<actuator::drivers::DjiC6xxMin*>(actuators_[idx]);
-                    if (cmd.mode == orb::MotorCtrlMode::Omega) {
-                        m->SetTargetOmega(cmd.target_omega);
-                    } else if (cmd.mode == orb::MotorCtrlMode::Current) {
-                        m->SetTargetCurrent(cmd.target_current);
-                    } else {
-                        m->SetTargetOmega(0.0f);
-                    }
-                    m->Update();
-                    m->PublishTx();
-                } else if (item.type == actuator::Type::DmNormal) {
-                    auto* m = static_cast<actuator::drivers::DmMitMin*>(actuators_[idx]);
-                    // Only Angle/Omega/Torque are meaningful for MIT in this minimal layer
-                    const float ang = (cmd.mode == orb::MotorCtrlMode::Angle) ? cmd.target_angle : m->now_angle();
-                    const float omg = (cmd.mode == orb::MotorCtrlMode::Omega) ? cmd.target_omega : 0.0f;
-                    const float tq  = (cmd.mode == orb::MotorCtrlMode::Current) ? cmd.target_current : 0.0f;
-                    m->SetControl(ang, omg, tq);
-                    m->PublishMitTx();
+            struct GroupAcc {
+                orb::CanBus bus;
+                uint16_t group_std_id;
+                int16_t current[4];
+                bool used;
+            } groups[8]{};
+
+            auto slot_from_ids = [](uint16_t group_id, uint16_t motor_id) -> int {
+                if (group_id == 0x200) {
+                    if (motor_id >= 0x201 && motor_id <= 0x204) return static_cast<int>(motor_id - 0x201);
+                } else if (group_id == 0x1FF) {
+                    if (motor_id >= 0x205 && motor_id <= 0x208) return static_cast<int>(motor_id - 0x205);
+                } else if (group_id == 0x2FF) {
+                    if (motor_id >= 0x209 && motor_id <= 0x20C) return static_cast<int>(motor_id - 0x209);
                 }
+                // fallback by motor id range
+                if (motor_id >= 0x201 && motor_id <= 0x204) return static_cast<int>(motor_id - 0x201);
+                if (motor_id >= 0x205 && motor_id <= 0x208) return static_cast<int>(motor_id - 0x205);
+                if (motor_id >= 0x209 && motor_id <= 0x20C) return static_cast<int>(motor_id - 0x209);
+                return -1;
+            };
+
+            auto find_or_add_group = [&](orb::CanBus bus, uint16_t group_id) -> GroupAcc* {
+                for (auto& g : groups) {
+                    if (g.used && g.bus == bus && g.group_std_id == group_id) {
+                        return &g;
+                    }
+                }
+                for (auto& g : groups) {
+                    if (!g.used) {
+                        g.used = true;
+                        g.bus = bus;
+                        g.group_std_id = group_id;
+                        g.current[0] = 0;
+                        g.current[1] = 0;
+                        g.current[2] = 0;
+                        g.current[3] = 0;
+                        return &g;
+                    }
+                }
+                return nullptr;
+            };
+
+            for (uint8_t i = 0; i < kMaxActuators; ++i) {
+                const auto& it = cfg_.items[i];
+                if (it.type != motor_cfg::Type::DjiC620) {
+                    continue;
+                }
+                if (!dji_ptr_[i]) {
+                    continue;
+                }
+
+                const uint16_t group_id = it.dji_group_std_id;
+                const int slot = slot_from_ids(group_id, it.std_id);
+                if (slot < 0 || slot > 3) {
+                    continue;
+                }
+
+                auto* g = find_or_add_group(it.bus, group_id);
+                if (!g) {
+                    continue;
+                }
+                g->current[slot] = dji_ptr_[i]->target_current_raw();
+            }
+
+            for (const auto& g : groups) {
+                if (!g.used) {
+                    continue;
+                }
+
+                orb::CanTxFrame out{};
+                out.bus = g.bus;
+                out.id = g.group_std_id;
+                out.id_type = orb::CanIdType::Std;
+                out.frame_type = orb::CanFrameType::Data;
+                out.is_fd = false;
+                out.brs = false;
+                out.len = 8;
+                std::memset(out.data, 0, sizeof(out.data));
+                pack_i16_be(&out.data[0], g.current[0]);
+                pack_i16_be(&out.data[2], g.current[1]);
+                pack_i16_be(&out.data[4], g.current[2]);
+                pack_i16_be(&out.data[6], g.current[3]);
+                orb::can_tx.publish(out);
             }
         }
     }
@@ -331,15 +440,15 @@ void MotorActuatorTask::TaskEntry(void* arg)
 
 void MotorActuatorTask::OnCan1Rx(const BspCanFrame* frame)
 {
-    OnCanRx(orb::MotorBus::CAN1, frame);
+    OnCanRx(orb::CanBus::CAN1, frame);
 }
 
 void MotorActuatorTask::OnCan2Rx(const BspCanFrame* frame)
 {
-    OnCanRx(orb::MotorBus::CAN2, frame);
+    OnCanRx(orb::CanBus::CAN2, frame);
 }
 
 void MotorActuatorTask::OnCan3Rx(const BspCanFrame* frame)
 {
-    OnCanRx(orb::MotorBus::CAN3, frame);
+    OnCanRx(orb::CanBus::CAN3, frame);
 }

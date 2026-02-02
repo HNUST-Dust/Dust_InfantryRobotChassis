@@ -13,9 +13,9 @@
 
 // module
 #include "debug_tools.h"
-#include "alg_pid.h"
-#include "interpolation.hpp"
-#include "low_pass_filter.hpp"
+#include "control/alg_pid.h"
+#include "math/interpolation.hpp"
+#include "filter/low_pass_filter.hpp"
 
 #include "cmsis_os2.h"
 
@@ -246,14 +246,19 @@ protected:
     float imu_pitch_omega_ = 0.0f;
 
     // PID（业务层仍负责计算目标 omega 等）
-    Pid yaw_angle_pid_{};
-    Pid pitch_angle_pid_{};
-    Pid yaw_omega_pid_{};
-    Pid pitch_omega_pid_{};
+    alg::Pid yaw_angle_pid_{};
+    alg::Pid pitch_angle_pid_{};
+    alg::Pid yaw_omega_pid_{};
+    alg::Pid pitch_omega_pid_{};
 
     // 低通滤波器
-    LowPassFilter yaw_omega_filter_{};
-    LowPassFilter pitch_omega_filter_{};
+    alg::LowPassFilter yaw_omega_filter_{};
+    alg::LowPassFilter pitch_omega_filter_{};
+
+    // miniPC 角度接收滤波（在 Gimbal 模块内完成融合/滤波）
+    alg::LowPassFilter minipc_yaw_recive_filter_{};
+    alg::LowPassFilter minipc_pitch_recive_filter_{};
+    bool minipc_filters_inited_ = false;
 
     // pitch 角度插值器（保留原逻辑）
     Interpolation pitch_angle_interpolation{};
@@ -384,6 +389,10 @@ inline void Gimbal::SetTargetPitchOmega(float target_pitch_omega)
 {
     target_pitch_omega_ = target_pitch_omega;
 }
+
+
+// Module singleton accessor (no Context/service-locator layer)
+Gimbal& Gimbal_Instance();
 
 
 #endif // !GIMBAL_H

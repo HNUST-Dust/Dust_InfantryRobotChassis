@@ -47,7 +47,7 @@ protected:
     void KinematicsInverseResolution();
     void RotationMatrixTransform();
     void OutputToMotor();
-    static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
+    static void TaskEntry(void *param);
 };
 
 /**
@@ -84,5 +84,8 @@ inline void Chassis::SetYawAngle(float yaw_angle)
 {
     yaw_angle_ = yaw_angle;
 }
+
+// Module singleton accessor (no Context/service-locator layer)
+Chassis& Chassis_Instance();
 
 #endif // !APP_CHASSIS_H_

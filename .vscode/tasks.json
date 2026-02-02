@@ -1,44 +1,222 @@
 {
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "Flash STM32",
-            "type": "shell",
-            "command": "openocd",
-            "args": [
-                "-f",
-                "${workspaceRoot}/Board/dm-h723/config/openocd_dap.cfg",
-                "-c",
-                "program build/Dust_InfantryRobotChassis.bin verify reset exit 0x08000000"
-            ],
-            "problemMatcher": []
-        },
-        {
-            "label": "clang-tidy full scan",
-            "type": "shell",
-            "command": "run-clang-tidy",
-            "args": [
-                "-p",
-                "build",
-                "App/**/*.cpp",
-                "Bsp/**/*.cpp",
-                "Modules/**/*.cpp"
-            ],
-            "options": {
-                "cwd": "${workspaceFolder}"
-            },
-            "problemMatcher": [
-                "$gcc"
-            ],
-            "group": {
-                "kind": "build",
-                "isDefault": false
-            },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "panel": "shared"
-            }
-        }
-    ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Flash STM32",
+			"type": "shell",
+			"command": "openocd",
+			"args": [
+				"-f",
+				"${workspaceRoot}/Board/dm-h723/config/openocd_dap.cfg",
+				"-c",
+				"program build/Dust_InfantryRobotChassis.bin verify reset exit 0x08000000"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "clang-tidy full scan",
+			"type": "shell",
+			"command": "run-clang-tidy",
+			"args": [
+				"-p",
+				"build",
+				"App/**/*.cpp",
+				"Bsp/**/*.cpp",
+				"Modules/**/*.cpp"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": false
+			},
+			"presentation": {
+				"echo": true,
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Build (cmake)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build",
+				"-j",
+				"8"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Configure (cmake)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"-S",
+				".",
+				"-B",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Reconfigure (cmake)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"-S",
+				".",
+				"-B",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build",
+				"-j",
+				"8"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Reconfigure (cmake -S . -B build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"-S",
+				".",
+				"-B",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Build (cmake --build build)",
+			"type": "shell",
+			"command": "cmake",
+			"args": [
+				"--build",
+				"build"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
 }

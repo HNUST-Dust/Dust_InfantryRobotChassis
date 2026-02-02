@@ -11,7 +11,8 @@
  ******************************************************************************
  */
 #include "ins_task.h"
-#include "QuaternionEKF.h"
+#include "estimation/QuaternionEKF.h"
+#include "common/alg_common.h"
 #include "bsp_dwt.h"
 #include "bsp_pwm_temp.h"
 #include "controller.h"
@@ -183,12 +184,12 @@ static void IMU_Param_Correction(IMU_Param_t *param, float gyro[3],
       fabsf(param->Pitch - lastPitchOffset) > 0.001f ||
       fabsf(param->Roll - lastRollOffset) > 0.001f || param->flag)
   {
-    cosYaw = arm_cos_f32(param->Yaw / 57.295779513f);
-    cosPitch = arm_cos_f32(param->Pitch / 57.295779513f);
-    cosRoll = arm_cos_f32(param->Roll / 57.295779513f);
-    sinYaw = arm_sin_f32(param->Yaw / 57.295779513f);
-    sinPitch = arm_sin_f32(param->Pitch / 57.295779513f);
-    sinRoll = arm_sin_f32(param->Roll / 57.295779513f);
+    cosYaw = arm_cos_f32(param->Yaw * DEG_TO_RAD);
+    cosPitch = arm_cos_f32(param->Pitch * DEG_TO_RAD);
+    cosRoll = arm_cos_f32(param->Roll * DEG_TO_RAD);
+    sinYaw = arm_sin_f32(param->Yaw * DEG_TO_RAD);
+    sinPitch = arm_sin_f32(param->Pitch * DEG_TO_RAD);
+    sinRoll = arm_sin_f32(param->Roll * DEG_TO_RAD);
 
     // 1.yaw(alpha) 2.pitch(beta) 3.roll(gamma)
     c_11 = cosYaw * cosRoll + sinYaw * sinPitch * sinRoll;
@@ -268,11 +269,11 @@ void QuaternionToEularAngle(float *q, float *Yaw, float *Pitch, float *Roll)
 {
   *Yaw = atan2f(2.0f * (q[0] * q[3] + q[1] * q[2]),
                 2.0f * (q[0] * q[0] + q[1] * q[1]) - 1.0f) *
-         57.295779513f;
+         RAD_TO_DEG;
   *Pitch = atan2f(2.0f * (q[0] * q[1] + q[2] * q[3]),
                   2.0f * (q[0] * q[0] + q[3] * q[3]) - 1.0f) *
-           57.295779513f;
-  *Roll = asinf(2.0f * (q[0] * q[2] - q[1] * q[3])) * 57.295779513f;
+           RAD_TO_DEG;
+  *Roll = asinf(2.0f * (q[0] * q[2] - q[1] * q[3])) * RAD_TO_DEG;
 }
 
 /**
@@ -281,9 +282,9 @@ void QuaternionToEularAngle(float *q, float *Yaw, float *Pitch, float *Roll)
 void EularAngleToQuaternion(float Yaw, float Pitch, float Roll, float *q)
 {
   float cosPitch, cosYaw, cosRoll, sinPitch, sinYaw, sinRoll;
-  Yaw /= 57.295779513f;
-  Pitch /= 57.295779513f;
-  Roll /= 57.295779513f;
+  Yaw *= DEG_TO_RAD;
+  Pitch *= DEG_TO_RAD;
+  Roll *= DEG_TO_RAD;
   cosPitch = arm_cos_f32(Pitch / 2);
   cosYaw = arm_cos_f32(Yaw / 2);
   cosRoll = arm_cos_f32(Roll / 2);

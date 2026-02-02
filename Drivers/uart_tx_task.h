@@ -2,37 +2,38 @@
 
 #include "cmsis_os2.h"
 
+#include "FreeRTOS.h"
+#include "task.h"
+
 #include "bsp_uart_port.h"
 #include "../communication_topic/topic_notify.hpp"
 
-// Forward decl for FreeRTOS static task storage types
-extern "C" {
-#include "FreeRTOS.h"
-#include "task.h"
-}
+#include "../communication_topic/uart_topics.hpp"
 
 namespace orb {
-struct UiTxFrame;
-}
+struct UartTxFrame;
+}  // namespace orb
 
 template<typename T, int DEPTH>
 class RingSub;
 
-// 裁判系统 UI 发送任务：订阅 ui_tx ring topic，串行发送到 UART1。
-class UiTxTask {
-public:
-    bool Start(BspUartId uart_id = BSP_UART1);
+// 统一 UART 发送任务：
+// - 订阅 orb::uart_tx（通用字节流）
+// - 唯一允许调用 bsp_uart_send 的模块
 
-    // Backward-compatible name
-    void Init(BspUartId uart_id = BSP_UART1) { (void)Start(uart_id); }
+class UartTxTask {
+public:
+    bool Start();
+
+    void Init() { (void)Start(); }
 
 private:
     static void TaskEntry(void* arg);
     void Task();
 
-    bool started_ = false;
+    static BspUartId ToBspId(orb::UartPort p);
 
-    BspUartHandle uart_ = nullptr;
+    bool started_ = false;
 
     osThreadId_t thread_ = nullptr;
 
@@ -45,5 +46,5 @@ private:
     Notifier notifier_{nullptr, 0};
 
     StaticTask_t tcb_{};
-    StackType_t stack_[384]{};  // UI 帧发送相对多一点，栈稍大
+    StackType_t stack_[512]{};
 };
