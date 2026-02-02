@@ -1,3 +1,14 @@
+/**
+ * @file can_tx_task.cpp
+ * @brief `Drivers/can_tx_task.h` 的实现（drain `orb::can_tx` 并调用 `bsp_can_send()`）
+ *
+ * 实现要点：
+ * =========
+ * - 使用 `RingSub<orb::CanTxFrame, 32>` 作为订阅端，循环 drain 直至队列为空。
+ * - 根据 `orb::CanBus` 选择对应 `BspCanHandle`（CAN1/2/3）。
+ * - 发送时将 Topic 帧字段映射到 BSP 帧字段（STD/EXT、DATA/REMOTE、FD/BRS）。
+ */
+
 #include "can_tx_task.h"
 
 #include <cstring>

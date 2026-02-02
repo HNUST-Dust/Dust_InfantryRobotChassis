@@ -1,3 +1,24 @@
+/**
+ * @file topic_notify.hpp
+ * @brief Topic 发布事件 → RTOS 唤醒机制（Notifier）
+ *
+ * 设计思路：
+ * =========
+ * Topic/RingTopic 的数据读取通常是“拉取式”（订阅者 copy）。
+ * `Notifier` 提供“推送式唤醒”：当发布者 publish 新数据时，触发 RTOS EventFlags，
+ * 让订阅者任务从阻塞态唤醒后再去拉取数据。
+ *
+ * 线程模型：
+ * =========
+ * - `notify()` 只做 EventFlags set；不做数据拷贝。
+ * - 是否可在 ISR 调用取决于底层 CMSIS-RTOS2 实现对 EventFlagsSet 的支持。
+ *
+ * 注意事项：
+ * =========
+ * - Notifier 的生命周期必须覆盖 Topic 注册期间（通常放在任务静态对象中）。
+ * - EventFlags mask 的分配建议集中管理，避免不同事件源冲突。
+ */
+
 #pragma once
 
 #include "cmsis_os2.h"

@@ -1,3 +1,21 @@
+/**
+ * @file topic_wait.hpp
+ * @brief 任务侧事件驱动工具：TopicWaiter（EventFlags + Notifier + wait）
+ *
+ * 设计思路：
+ * =========
+ * `TopicWaiter` 将“创建 EventFlags + 持有 Notifier + 等待事件”的样板代码收敛成一个小工具。
+ * 常见用法：
+ * - 任务创建 waiter
+ * - 将 `waiter.notifier()` 注册到 Topic/RingTopic
+ * - 任务循环中 `waiter.wait()` 阻塞等待发布事件
+ *
+ * 边界：
+ * =====
+ * - 仅负责唤醒，不负责搬运数据；数据仍由 `Sub/RingSub` copy。
+ * - 采用静态内存（EventFlags cb_mem），避免动态分配。
+ */
+
 #pragma once
 
 #include "cmsis_os2.h"

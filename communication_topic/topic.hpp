@@ -1,3 +1,11 @@
+/**
+ * @file topic.hpp
+ * @brief Topic 系统核心实现（Topic/RingTopic/Subscription/Notifier integration）
+ *
+ * 本文件包含该模块的详细设计说明、内存序语义与使用示例。
+ * 建议同时阅读 communication_topic/CommunicationTopic.md。
+ */
+
 #pragma once
 
 #include <atomic>

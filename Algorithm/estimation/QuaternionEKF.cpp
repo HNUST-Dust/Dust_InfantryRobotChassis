@@ -1,17 +1,21 @@
 /**
- ******************************************************************************
- * @file    QuaternionEKF.c
- * @author  Wang Hongxi
- * @version V1.2.0
- * @date    2022/3/8
- * @brief   attitude update with gyro bias estimate and chi-square test
- ******************************************************************************
- * @attention
- * 1st order LPF transfer function:
- *     1
- *  ———————
- *  as + 1
- ******************************************************************************
+ * @file QuaternionEKF.cpp
+ * @brief 四元数姿态 EKF 实现（对应 `estimation/QuaternionEKF.h`）
+ *
+ * 设计要点：
+ * =========
+ * - 以四元数为姿态状态，融合陀螺仪（预测）与加速度计（观测），并估计 gyro bias。
+ * - 通过 `Kalman_Filter_Update()` 的钩子函数实现 observe/linearization/H 设置与融合步骤。
+ * - 使用一阶低通对加速度做平滑，以降低冲击/异常带来的观测污染。
+ *
+ * I/O 与单位：
+ * =========
+ * - 输入：gyro(rad/s)、acc(m/s^2)、dt(s)
+ * - 输出：四元数 `q[]` 与欧拉角 `Yaw/Pitch/Roll`（deg）
+ *
+ * 注意事项：
+ * =========
+ * - 默认使用全局实例 `QEKF_INS`，建议在单一任务中周期更新。
  */
 #include "QuaternionEKF.h"
 #include "common/alg_common.h"

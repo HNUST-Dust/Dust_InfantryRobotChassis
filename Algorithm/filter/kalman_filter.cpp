@@ -1,4 +1,15 @@
 /**
+ * @file kalman_filter.cpp
+ * @brief `filter/kalman_filter.h` 的实现（KF 框架 + 动态调整量测维度）
+ *
+ * 说明：
+ * =====
+ * - 本文件包含大量原始实现文档与示例（如下）。本次仅补齐文件头说明以对齐仓库文档标准。
+ * - 关键约束：`Kalman_Filter_Init()` 通过 `user_malloc` 分配矩阵空间，且当前无释放接口；应避免重复 init。
+ * - 同一 `KalmanFilter_t` 实例不应在多个任务并发更新。
+ */
+
+/**
  ******************************************************************************
  * @file    kalman filter.c
  * @author  Wang Hongxi

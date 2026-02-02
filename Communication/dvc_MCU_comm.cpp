@@ -1,3 +1,25 @@
+/**
+ * @file dvc_MCU_comm.cpp
+ * @brief McuComm 实现：CAN RX 解包、Topic 发布、TxTask 组帧并发布 can_tx
+ *
+ * 核心逻辑：
+ * =========
+ * - `Start()`：注册 daemon client（COMM/CRITICAL/FATAL），并启动 TxTask。
+ * - `Can*RxCpltCallback()`：
+ *   - 校验帧有效性
+ *   - 收到新数据时 feed daemon（在线判据：有新外部数据）
+ *   - 解析字段并发布到对应 Topic
+ * - `TxTask()`：
+ *   - 等待 `orb::gimbal_info_tx` notifier 唤醒
+ *   - 批量读取 RingTopic 并将数据转换为 `orb::CanTxFrame`
+ *   - 发布到 `orb::can_tx`
+ *
+ * 为什么 TX 不直接发 CAN：
+ * =====================
+ * 工程约束为“CAN/UART 发送必须经由唯一 TxTask 出口”。
+ * `McuComm` 作为上游，只负责把待发送的数据发布到 Topic。
+ */
+
 #include "dvc_MCU_comm.h"
 #include <cstdint>
 #include <cstring>

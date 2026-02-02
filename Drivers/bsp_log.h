@@ -1,12 +1,16 @@
 /**
  * @file bsp_log.h
- * @author noe (noneofever@gmail.com)
- * @brief 
- * @version 0.1
- * @date 2025-08-03
- * 
- * @copyright Copyright (c) 2025
- * 
+ * @brief 基于 SEGGER RTT 的日志输出封装
+ *
+ * 设计思路：
+ * =========
+ * - 在调试阶段提供低侵入、低延迟的日志输出（RTT 不需要串口占用）。
+ * - 通过 `LOGINFO/LOGWARNING/LOGERROR` 等宏提供统一格式与颜色。
+ *
+ * 注意事项：
+ * =========
+ * - RTT 的 printf 默认不支持浮点格式化：如需输出 float，应先用 `float2str()` 转换为字符串。
+ * - 可通过 `DISABLE_LOG_SYSTEM` 宏关闭日志输出，以减少 release 版本开销。
  */
 #ifndef BSP_BSP_LOG_H
 #define BSP_BSP_LOG_H

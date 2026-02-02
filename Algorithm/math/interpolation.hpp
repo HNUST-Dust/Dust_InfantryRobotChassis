@@ -1,3 +1,19 @@
+/**
+ * @file interpolation.hpp
+ * @brief 简单线性插值/分段输出工具（历史实现）
+ *
+ * 设计思路：
+ * =========
+ * - 用于在 `point_num` 个周期内，从 `start_point` 线性过渡到 `end_point`。
+ * - `Output()` 每调用一次推进一步，并输出当前插值值。
+ *
+ * 注意事项：
+ * =========
+ * - `Output()` 内部使用了 `static uint8_t times;` 作为计数器，这会导致计数器在所有实例之间共享。
+ *   因此该类并非“多实例互不影响”的严格意义对象；也不适合并发/多任务共享使用。
+ * - 若需要更严格的实例隔离，可将计数器改为成员变量（但这属于逻辑改动，本次仅文档化）。
+ */
+
 #ifndef ALGORITHM_INTERPOLATION_H
 #define ALGORITHM_INTERPOLATION_H
 

@@ -1,3 +1,27 @@
+/**
+ * @file AppWiring.cpp
+ * @brief 平台 IO 装配实现：UART/CAN RX → 对应模块回调
+ *
+ * 核心逻辑：
+ * =========
+ * - 通过 `bsp_uart_init()` 注册 UART RX 回调。
+ * - 通过 `bsp_can_add_rx_callback()` 注册 CAN RX 回调（支持多个订阅者扇出）。
+ * - 回调内部只做“ID 分发/转发”，将数据交给模块实例处理。
+ *
+ * 数据流（以当前实现为准）：
+ * ========================
+ * - UART7: Debug/VOFA → `DebugTools_Instance().VofaReceiveCallback()`
+ * - UART1: Referee → `Referee_Instance().RxCpltCallback()`
+ * - CAN1/2/3: MotorActuatorTask → `OnCanXRx()`
+ * - CAN2(特定 ID): 外部 MCU 数据 → `McuComm_Instance().Can*RxCpltCallback()`
+ * - CAN3(0x100): Supercap → `Supercap_Instance().CanRxCpltCallback()`
+ *
+ * 注意事项：
+ * =========
+ * - 该文件不做 CAN/UART 发送；发送必须走统一的 TxTask/Topic 出口。
+ * - 回调可能在中断上下文执行：必须避免阻塞与复杂计算。
+ */
+
 #include "AppWiring.h"
 
 #include "bsp_can_port.h"

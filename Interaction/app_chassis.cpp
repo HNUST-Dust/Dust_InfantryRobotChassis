@@ -1,3 +1,12 @@
+/**
+ * @file app_chassis.cpp
+ * @brief Chassis 实现：订阅输入 Topic，做坐标变换与运动学逆解，发布轮速目标 Topic。
+ *
+ * 说明：
+ * - 本模块不直接控制电机/不直接发送 CAN；只发布 `orb::chassis_wheel_omega_cmd`。
+ * - 执行器输出由 Device/MotorActuatorTask 订阅并落到 `orb::can_tx`。
+ */
+
 // app
 #include "app_chassis.h"
 #include "cmsis_os2.h"

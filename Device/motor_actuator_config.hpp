@@ -1,3 +1,20 @@
+/**
+ * @file motor_actuator_config.hpp
+ * @brief MotorActuatorTask 的配置数据结构：业务索引映射 + (bus,std_id) + 驱动参数。
+ *
+ * **设计目标**
+ * - 让业务层只关心“第几个轮子/哪个云台轴”，不关心 CAN bus/std_id。
+ * - 让设备层在启动阶段一次性完成：驱动实例绑定、ID 映射表构建、以及必要的 bring-up 序列。
+ *
+ * **关键点**
+ * - `Config::items[]`：以 index 为中心的“执行器列表”，每个元素包含：
+ *   - 类型（DJI/DM/None）
+ *   - `orb::CanBus` + `std_id`
+ *   - 类型专用 config（最小化驱动 `DjiC6xxMin` / `DmMitMin`）
+ * - `Config::*_index`：业务侧索引到 `items[]` 的映射（例如 4 个轮子、yaw/pitch）。
+ * - 默认值给出一个项目内可用的示例配置；真实项目可以在 App bring-up 时覆盖/替换。
+ */
+
 #pragma once
 
 #include <cstdint>

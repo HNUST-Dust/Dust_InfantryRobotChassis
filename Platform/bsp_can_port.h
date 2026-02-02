@@ -1,3 +1,24 @@
+/**
+ * @file bsp_can_port.h
+ * @brief 上层可用的 CAN 端口抽象（HAL-free，C ABI）
+ *
+ * 设计思路：
+ * =========
+ * - 以 `BspCanHandle` 隐藏具体 HAL/驱动实现，向上提供稳定的发送与回调注册接口。
+ * - `BspCanFrame` 统一描述 STD/EXT、DATA/REMOTE、CAN-FD/BRS 等特性，便于上层一致处理。
+ *
+ * 线程模型与约束：
+ * ===============
+ * - RX 回调可能在中断相关上下文触发（取决于具体实现）：回调必须轻量、不可阻塞。
+ * - 工程架构约束：上层业务模块不应直接调用 `bsp_can_send()`，应发布到 `orb::can_tx`，由
+ *   `Drivers/CanTxTask` 统一发送（唯一出口）。
+ *
+ * 回调注册：
+ * =========
+ * - `bsp_can_init()` 是覆盖式单回调接口（legacy）。
+ * - `bsp_can_add_rx_callback()` 为追加式多回调接口（按注册顺序调用），适合分布式模块订阅。
+ */
+
 #pragma once
 
 #ifdef __cplusplus

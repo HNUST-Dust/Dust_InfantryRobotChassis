@@ -1,3 +1,34 @@
+/**
+ * @file motor_actuator_task.h
+ * @brief 执行器任务：把“业务层电机目标”映射为具体电机驱动与 CAN 报文。
+ *
+ * **定位**
+ * - 设备层（Device）：面向“电机/执行器”这一类硬件对象。
+ * - 上层（App/Interaction）不携带 CAN bus/std_id 等硬件细节，只发布 app-level motor topics。
+ *
+ * **数据流（Topic 化）**
+ * - 输入：
+ *   - `orb::chassis_wheel_omega_cmd`：底盘轮速目标（业务层）
+ *   - `orb::gimbal_dm_target`：DM 目标（业务层）
+ *   - `orb::gimbal_dm_admin_cmd`：DM 管理指令（进入/退出/清错等）
+ * - 输出：
+ *   - `orb::can_tx`：统一的 CAN 发送 Topic（由 Drivers/CanTxTask 作为唯一发送出口落到 BSP）
+ *
+ * **线程/回调模型**
+ * - `Start()` 创建一个 RTOS 任务（静态栈/静态控制块，避免动态分配）。
+ * - `OnCan{1,2,3}Rx()` 由 Platform/CAN RX 回调路径调用，可能处于中断或高优先级上下文：
+ *   - 必须保持轻量、不可阻塞、不可调用会睡眠的 API。
+ *   - 仅做帧过滤、驱动解包（`OnRx`）与在线 feed。
+ *
+ * **在线判据/守护**
+ * - daemon_supervisor 的“在线”以收到预期电机反馈帧为判据；无反馈即认为执行器离线。
+ * - fault 回调采取 best-effort：发布 `orb::gimbal_dm_admin_cmd` 请求 DM 退出。
+ *
+ * **约束**
+ * - 严禁在业务层/设备层直接调用 `bsp_can_send*`；统一经由 `orb::can_tx` + CanTxTask。
+ * - 必须先 `Bind()` + `BindConfig()`，再 `Start()`；启动后不允许重新绑定。
+ */
+
 #pragma once
 
 #include "cmsis_os2.h"

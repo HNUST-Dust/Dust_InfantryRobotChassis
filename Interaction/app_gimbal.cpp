@@ -1,12 +1,11 @@
 /**
  * @file app_gimbal.cpp
- * @author noe (noneofever@gmail.com)
- * @brief 
- * @version 0.1
- * @date 2025-08-04
- * 
- * @copyright Copyright (c) 2025
- * 
+ * @brief Gimbal 实现：订阅 IMU/遥控/自瞄输入，完成融合与控制，并发布云台目标 Topic。
+ *
+ * 说明：
+ * - 业务层只发布目标（`orb::gimbal_dm_target` / `orb::gimbal_dm_admin_cmd`），不直接发送 CAN。
+ * - 电机反馈与 CAN 报文由 Device/MotorActuatorTask 处理。
+ * - 守护（daemon_supervisor）仅在“收到新外部数据”时 feed，避免任务空转误判在线。
  */
 #include "app_gimbal.h"
 #include "cmsis_os2.h"

@@ -1,3 +1,24 @@
+/**
+ * @file low_pass_filter.hpp
+ * @brief 一阶低通滤波器（新增 C++ API + 旧接口 wrapper）
+ *
+ * 设计思路：
+ * =========
+ * - 用于对传感器/控制量进行一阶平滑：$y[n]=\alpha x[n] + (1-\alpha) y[n-1]$。
+ * - `alg::LowPassFilter` 提供 C++ 风格接口；文件末尾 `::LowPassFilter` 为历史兼容包装。
+ *
+ * 参数含义：
+ * =========
+ * - `cutoff_hz`：截止频率（Hz）。
+ * - `dt`：采样周期（s）。
+ * - 计算方式：$rc = 1/(2\pi f_c)$，$\alpha = dt/(dt+rc)$。
+ *
+ * 注意事项：
+ * =========
+ * - 若 `dt<=0` 或 `cutoff_hz<=0`，会退化为“直接输出输入”（`alpha=1`），通常意味着配置错误。
+ * - 该类包含内部状态，不是线程安全；建议按控制回路独立实例化。
+ */
+
 #ifndef LOW_PASS_FILTER_H_
 #define LOW_PASS_FILTER_H_
 

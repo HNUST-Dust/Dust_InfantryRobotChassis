@@ -1,3 +1,18 @@
+/**
+ * @file alg_ramp.h
+ * @brief 斜坡函数（对输入变化率进行限制/缓启动）
+ *
+ * 设计思路：
+ * =========
+ * - 在每个周期按固定速率积分输入，形成平滑输出，常用于速度/电流指令的软启动与限加速度。
+ * - 既提供 `alg::Ramp` 方法接口，也保留历史 wrapper（`ramp_init/ramp_calc`）。
+ *
+ * 注意事项：
+ * =========
+ * - `frame_period` 为周期秒数；`input` 的单位应为“每秒变化量”（per second）。
+ * - 到达上下限会置 `is_completed=1`。
+ */
+
 #pragma once
 
 #include <cstdint>

@@ -1,3 +1,19 @@
+/**
+ * @file bsp_uart_port.h
+ * @brief 上层可用的 UART 端口抽象（HAL-free，C ABI）
+ *
+ * 设计思路：
+ * =========
+ * - 以 `BspUartHandle` 隐藏底层 UART/HAL/DMA 细节，向上提供 init/RX 回调与发送接口。
+ * - 统一由 Board/Drivers 完成硬件初始化与 IRQ/DMA 配置，上层只依赖此抽象接口。
+ *
+ * 线程模型与约束：
+ * ===============
+ * - RX 回调通常在中断相关上下文触发（取决于具体实现）：回调必须轻量、不可阻塞。
+ * - 工程架构约束：上层业务模块不应直接调用 `bsp_uart_send()`，应发布到 `orb::uart_tx`，由
+ *   `Drivers/UartTxTask` 统一发送（唯一出口）。
+ */
+
 #pragma once
 
 #ifdef __cplusplus

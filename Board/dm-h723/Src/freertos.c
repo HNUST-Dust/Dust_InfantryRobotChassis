@@ -3,6 +3,13 @@
   ******************************************************************************
   * File Name          : freertos.c
   * Description        : Code for freertos applications
+  *
+  * 说明（工程补充）：
+  * ================
+  * - 本文件由 CubeMX 生成，用于创建 RTOS 线程/同步对象。
+  * - 工程采用 staged bring-up：defaultTask 在 `StartDefaultTask()` 中 one-shot 调用 `System_Boot()`
+  *   以启动 daemon/TX tasks/执行器层/底盘云台等模块，随后退出自身线程。
+  * - 自定义内容请放在 `USER CODE` 区间，避免被重新生成覆盖。
   ******************************************************************************
   * @attention
   *

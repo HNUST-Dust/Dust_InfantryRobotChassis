@@ -1,12 +1,22 @@
 /**
- * @file dvc_mcu_comm.h
- * @author noe (noneofever@gmail.com)
- * @brief 
- * @version 0.1
- * @date 2025-08-04
- * 
- * @copyright Copyright (c) 2025
- * 
+ * @file dvc_MCU_comm.h
+ * @brief 外部 MCU 通信（CAN RX 解包 → Topic 发布；Topic 订阅 → CAN TX 发布）
+ *
+ * 设计思路：
+ * =========
+ * `McuComm` 将“外部 MCU/上位机”的数据输入统一转换为 Topic，供业务模块订阅。
+ * 同时它也承担一条典型的发送链路：订阅待发送 RingTopic，组帧后发布到 `orb::can_tx`。
+ *
+ * 关键原则：
+ * =========
+ * - RX：回调快速解析并发布 Topic。
+ * - TX：不直接调用 BSP 发送；只发布 `orb::can_tx`，由统一 TxTask 完成最终发送。
+ * - 守护：在线判据基于“收到新外部数据”而非任务空转。
+ *
+ * 线程模型：
+ * =========
+ * - RX 回调：由平台 CAN 接收触发（可能在 IRQ 或专用接收线程）。
+ * - TxTask：CMSIS-RTOS2 线程，等待 notifier 唤醒后批量发送。
  */
 #ifndef MODULES_COMM_DVC_MCU_COMM_H
 #define MODULES_COMM_DVC_MCU_COMM_H

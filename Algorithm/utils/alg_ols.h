@@ -1,3 +1,17 @@
+/**
+ * @file alg_ols.h
+ * @brief Ordinary Least Squares（用于导数估计/平滑）的固定数组实现
+ *
+ * 设计思路：
+ * =========
+ * - 用固定大小数组（`kMaxOrder`）替代动态分配，适合嵌入式实时环境。
+ * - 提供面向对象接口（`alg::OrdinaryLeastSquares`）与历史 C 风格 wrapper（`OLS_*`）。
+ *
+ * 线程模型：
+ * =========
+ * - 实例包含内部窗口数据与拟合结果，不可重入；每个任务/通道应持有独立实例。
+ */
+
 #pragma once
 
 #include <cstdint>

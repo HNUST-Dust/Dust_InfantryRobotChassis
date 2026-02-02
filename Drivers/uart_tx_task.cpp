@@ -1,3 +1,14 @@
+/**
+ * @file uart_tx_task.cpp
+ * @brief `Drivers/uart_tx_task.h` 的实现（drain `orb::uart_tx` 并调用 `bsp_uart_send()`）
+ *
+ * 实现要点：
+ * =========
+ * - 使用 `RingSub<orb::UartTxFrame, 32>` drain 待发字节流。
+ * - 通过 `orb::UartPort -> BspUartId` 映射选择底层句柄。
+ * - 支持 `throttle_ms`：对每包发送后延时（尽量减少对实时路径的干扰）。
+ */
+
 #include "uart_tx_task.h"
 
 #include <cstring>

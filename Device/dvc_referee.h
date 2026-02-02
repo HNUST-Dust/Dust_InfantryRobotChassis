@@ -1,4 +1,29 @@
-#pragma  once
+/**
+ * @file dvc_referee.h
+ * @brief 裁判系统设备封装：UART RX 解析 -> 发布 Topic；必要时驱动 UI 更新。
+ *
+ * **定位**
+ * - 该模块负责对接裁判系统串口数据（Referee），并把解析结果以 Topic 的形式提供给业务层。
+ * - 仅解析本工程实际用到的字段（例如 HP、功率限制、发射信息）。
+ *
+ * **数据流**
+ * - 输入：
+ *   - UART RX 回调 `RxCpltCallback()`（来自 Platform/UART port 的 RX 完成回调路径）
+ * - 输出：
+ *   - `orb::referee_status` / `orb::referee_shoot`
+ *   - UI：ISR 中仅置位标志，Task 中在安全上下文调用 UI 刷新函数（避免 ISR 直接做耗时工作）
+ * - 发送：`Send()` 不直接调用 BSP UART 发送，而是发布 `orb::uart_tx`，由 Drivers/UartTxTask 统一发送。
+ *
+ * **在线判据/守护**
+ * - Online 判据：持续收到新的裁判系统 UART 帧（由 `RxCpltCallback()` 驱动 feed）。
+ * - Start() 时会设置 baseline 时间戳，避免“未接入即离线”的误判。
+ *
+ * **约束**
+ * - 启动后不允许重新 Bind（避免竞态与发送到错误串口）。
+ * - ISR/回调内必须轻量：只做拷贝、发布 Topic、置位标志与喂狗。
+ */
+
+#pragma once
 #include "stdint.h"
 
 #include "bsp_uart_port.h"

@@ -1,12 +1,23 @@
 /**
  * @file alg_pid.h
- * @author noe (noneofever@gmail.com)
- * @brief 
- * @version 0.1
- * @date 2025-08-03
- * 
- * @copyright Copyright (c) 2025
- * 
+ * @brief PID 控制器（含兼容旧接口包装）
+ *
+ * 设计思路：
+ * =========
+ * - 提供可复用的 PID 实现，支持：积分限幅、积分分离、变速积分、死区、微分先行、D 低通。
+ * - 对外推荐使用 C++ 接口：`alg::PidConfig + alg::Pid::configure/reset/update`。
+ * - 同时保留历史接口（`Init/SetKp/...`）以减少业务侧改动成本。
+ *
+ * 线程模型：
+ * =========
+ * - `alg::Pid` 内部持有状态（积分、上次误差/输入等），不是线程安全的。
+ * - 建议每个控制回路/任务持有各自实例；不要跨任务共享同一个实例（除非自行加锁）。
+ *
+ * 注意事项：
+ * =========
+ * - `update()` 计算普通误差：`target-now`。
+ * - `update_angle()` 用于角度控制：内部会对角度误差进行归一化处理，适用于跨 0/跨 $\pi$ 的情况。
+ * - 建议在模式切换/目标突变时调用 `reset()`，避免历史积分导致输出突跳。
  */
 #ifndef MODULES_ALGORITHM_PID_H_
 #define MODULES_ALGORITHM_PID_H_

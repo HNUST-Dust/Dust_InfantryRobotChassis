@@ -1,3 +1,24 @@
+/**
+ * @file system_startup.cpp
+ * @brief 工程统一启动序列实现（System_Boot + staged bring-up）
+ *
+ * 核心逻辑：
+ * =========
+ * - `System_Boot()` 按固定顺序执行：BSP -> Board -> Modules -> App。
+ * - 将“模块拉起顺序”集中管理，避免分散在各处导致依赖关系难以审查。
+ *
+ * 关键依赖：
+ * =========
+ * - DWT 时间基在 Board_BringUp() 早期初始化，供 daemon/控制环路使用。
+ * - daemon_supervisor 必须在各模块注册 client 前 init。
+ * - CAN/UART 发送统一经由 TxTask：这里负责启动 `CanTxTask`/`UartTxTask` 作为唯一发送出口。
+ *
+ * 故障策略：
+ * =========
+ * - 通过 `DaemonSupervisor::set_system_fault_hook()` 设置系统级故障回调。
+ *   当前实现为 best-effort：请求底盘/云台退出，并发布执行器层的管理指令。
+ */
+
 #include "system_startup.h"
 
 #include "AppWiring.h"

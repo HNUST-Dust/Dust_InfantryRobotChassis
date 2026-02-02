@@ -1,3 +1,14 @@
+/**
+ * @file dvc_referee.cpp
+ * @brief Referee 实现：UART 帧解析、Topic 发布、以及 UI 更新的任务侧调度。
+ *
+ * 说明：
+ * - RX 回调按“msg_id + payload”形式解析（仅覆盖本工程实际使用的数据类型）。
+ * - 解析出的状态通过 Topic 发布给业务层，避免业务层依赖裁判协议细节。
+ * - Send() 通过 `orb::uart_tx` 统一出口发送，避免直接调用 BSP。
+ * - daemon_supervisor feed：由 RX 回调在收到有效帧时触发。
+ */
+
 #include "dvc_referee.h"
 #include "cmsis_os.h"
 #include "cmsis_os2.h"

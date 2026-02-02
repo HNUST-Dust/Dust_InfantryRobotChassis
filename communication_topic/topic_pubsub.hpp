@@ -1,3 +1,18 @@
+/**
+ * @file topic_pubsub.hpp
+ * @brief Topic 系统的轻量包装：Publisher/Sub
+ *
+ * 设计思路：
+ * =========
+ * - `Publisher<T>`：只暴露 publish 能力，强化“发布者只写不读”的语义。
+ * - `Sub<T>`：对 `Subscription<T>` 的短名字封装，减少模板噪音。
+ *
+ * 边界：
+ * =====
+ * - 这是语义层封装，不改变底层 `Topic/Subscription` 的线程安全与内存序假设。
+ * - 仍遵循单写多读模型：同一 Topic 建议只有一个发布者。
+ */
+
 #pragma once
 
 #include "topic.hpp"

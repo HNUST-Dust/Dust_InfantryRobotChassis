@@ -1,12 +1,17 @@
 /**
  * @file alg_math.h
- * @author noe (noneofever@gmail.com)
- * @brief 
- * @version 0.1
- * @date 2025-08-03
- * 
- * @copyright Copyright (c) 2025
- * 
+ * @brief 数学工具函数（角度处理/归一化/大小端/求和/映射等，历史 C 风格 API）
+ *
+ * 设计思路：
+ * =========
+ * - 收纳“与平台无关”的数学/数值工具，供控制与估计模块复用。
+ * - 该文件当前保留了大量历史 C 风格函数命名（`math_*`），以保持兼容性。
+ *
+ * 注意事项：
+ * =========
+ * - 角度相关函数存在 rad/deg 混用的历史包袱：调用前应确认单位。
+ * - 若新增功能，优先放到更明确的子模块（例如 `utils/alg_constrain.*`）或以 `namespace alg` 的
+ *   形式提供现代接口，避免继续扩展全局 `math_*` 符号。
  */
 #ifndef MODULES_ALGORITHM_MATH_H_
 #define MODULES_ALGORITHM_MATH_H_

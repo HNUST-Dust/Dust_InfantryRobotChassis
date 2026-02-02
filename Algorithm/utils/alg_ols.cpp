@@ -1,3 +1,14 @@
+/**
+ * @file alg_ols.cpp
+ * @brief `utils/alg_ols.h` 的实现（固定窗口 OLS 导数/平滑）
+ *
+ * 设计要点：
+ * =========
+ * - 维护最近 `Order` 个采样点的窗口（x/y），通过最小二乘拟合得到斜率 k 与截距 b。
+ * - `update()`：更新窗口并计算 k/b；`derivative()`：返回当前拟合斜率；`smooth()`：返回窗口末端的拟合值。
+ * - 采用固定数组，避免动态内存。
+ */
+
 #include "alg_ols.h"
 
 #include <cmath>

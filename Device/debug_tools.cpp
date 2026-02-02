@@ -1,3 +1,8 @@
+/**
+ * @file debug_tools.cpp
+ * @brief DebugTools 实现：VOFA 数据打包并发布到 `orb::uart_tx`，以及 RX 驱动的在线 feed。
+ */
+
 #include "debug_tools.h"
 
 #include <cstdint>

@@ -1,3 +1,13 @@
+/**
+ * @file supercap.cpp
+ * @brief Supercap 实现：双任务（主任务 + 发送任务）以及 CAN RX 回调解析。
+ *
+ * 约定：
+ * - RX：由 Platform/CAN 回调喂入 `CanRxCpltCallback()`，解析后发布 `orb::supercap_rx`。
+ * - TX：主任务发布 `orb::supercap_tx`；发送子任务被 Notifier 唤醒后打包 CAN 帧并发布 `orb::can_tx`。
+ * - 实际 CAN 发送由 Drivers/CanTxTask 统一落地。
+ */
+
 #include "supercap.h"
 #include "cmsis_os.h"
 #include <cstdint>

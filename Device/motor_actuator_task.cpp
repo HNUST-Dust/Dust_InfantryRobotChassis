@@ -1,3 +1,16 @@
+/**
+ * @file motor_actuator_task.cpp
+ * @brief MotorActuatorTask 实现：配置驱动实例、CAN RX 分发、以及 Topic 化 CAN TX 输出。
+ *
+ * 说明：
+ * - 本文件只负责“电机任务”内部实现细节（驱动实例存储、id->index 缓存、RTOS 事件驱动）。
+ * - CAN 的实际发送不在这里直接落到 BSP，而是发布 `orb::can_tx`，由 Drivers/CanTxTask 统一发送。
+ *
+ * 守护策略：
+ * - Online 判据：收到匹配 (bus,std_id) 的反馈帧（且帧类型/长度合法）。
+ * - Offline/Fault：daemon 回调发布管理指令请求 DM 退出（best-effort）。
+ */
+
 #include "motor_actuator_task.h"
 
 #include "../communication_topic/can_topics.hpp"

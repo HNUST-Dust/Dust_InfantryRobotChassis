@@ -1,3 +1,31 @@
+/**
+ * @file supercap.h
+ * @brief 超级电容设备封装：CAN RX 解析 + Topic 发布；Topic 驱动的 CAN TX 发送。
+ *
+ * **定位**
+ * - 超级电容是底盘功率链路的一部分：接收电容回报数据，按业务命令发送工作/充放电/功率限制等。
+ *
+ * **数据流（Topic 化）**
+ * - 输入（业务/系统侧）：
+ *   - `orb::mcu_control`：用户/上层对 supercap 的控制意图（charge/discharge 等）
+ *   - `orb::supercap_tx`：将要发送给 supercap 的抽象命令（内部由本模块发布，也可由其它模块发布）
+ * - 输出：
+ *   - `orb::supercap_rx`：来自 supercap 的状态/能量/电压等数据
+ *   - `orb::can_tx`：统一 CAN 发送 Topic（由 Drivers/CanTxTask 落地到 BSP）
+ *
+ * **线程/回调模型**
+ * - 主任务 `Task()`：周期性从 `orb::mcu_control` 读取意图，并发布 `orb::supercap_tx`。
+ * - 发送子任务 `TxTask()`：由 `orb::supercap_tx` 的 Notifier 唤醒，把消息打包成 CAN 帧并发布到 `orb::can_tx`。
+ * - `CanRxCpltCallback()`：由 Platform/CAN RX 回调路径调用，负责解析帧并发布 `orb::supercap_rx`。
+ *
+ * **在线判据/守护**
+ * - Online 判据：持续收到 supercap 的 CAN 回报帧（由 `CanRxCpltCallback()` 驱动 feed）。
+ *
+ * **约束**
+ * - 严禁直接调用 `bsp_can_send*`；统一经由 `orb::can_tx` + CanTxTask。
+ * - 必须先 `Bind()` 再 `Start()`；启动后不允许重新 Bind。
+ */
+
 #ifndef DEVICE_SUPERCAP_H_
 #define DEVICE_SUPERCAP_H_
 

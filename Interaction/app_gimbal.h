@@ -1,12 +1,24 @@
 /**
  * @file app_gimbal.h
- * @author noe (noneofever@gmail.com)
- * @brief 
- * @version 0.1
- * @date 2025-08-04
- * 
- * @copyright Copyright (c) 2025
- * 
+ * @brief 云台应用层：角度/角速度控制与自瞄融合，发布云台目标到执行器层。
+ *
+ * **定位**
+ * - 应用层负责控制策略（PID/滤波/插补/模式切换），不直接接触 CAN bus/std_id。
+ * - 执行器层（Device/MotorActuatorTask）负责具体 DM/DJI 驱动、CAN RX 解包与 CAN TX 输出。
+ *
+ * **数据流（以当前实现为准）**
+ * - 输入：
+ *   - `orb::mcu_control`：手动控制/模式开关
+ *   - `orb::mcu_autoaim`：miniPC 自瞄输入
+ *   - `orb::mcu_imu`：IMU 姿态角与角速度
+ * - 输出：
+ *   - `orb::gimbal_dm_target`：云台 DM 目标（角度/角速度/力矩等字段）
+ *   - `orb::gimbal_dm_admin_cmd`：云台 DM 管理指令（例如 SaveZero/Exit）
+ *
+ * **线程模型/守护**
+ * - `Start()` 创建 RTOS 任务。
+ * - daemon_supervisor 在线判据：收到新的外部输入（mcu_control / mcu_autoaim / mcu_imu）才 feed。
+ * - 启动阶段存在 IMU 收敛等待窗口；窗口内仍按“收到新外部数据”喂守护，避免误判。
  */
 #ifndef APP_GIMBAL_H
 #define APP_GIMBAL_H
