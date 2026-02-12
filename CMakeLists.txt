@@ -51,7 +51,7 @@ add_subdirectory(Algorithm)
 add_subdirectory(Drivers)
 add_subdirectory(Communication)
 add_subdirectory(Device)
-add_subdirectory(Interaction)
+add_subdirectory(App)
 add_subdirectory(daemon_supervisor)
 
 target_link_libraries(${PROJECT_NAME}.elf PRIVATE

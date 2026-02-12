@@ -1,15 +1,14 @@
 /**
  * @file supercap.cpp
- * @brief Supercap 实现：双任务（主任务 + 发送任务）以及 CAN RX 回调解析。
+ * @brief Supercap 实现：周期发送 + CAN RX 回调解析。
  *
  * 约定：
  * - RX：由 Platform/CAN 回调喂入 `CanRxCpltCallback()`，解析后发布 `orb::supercap_rx`。
- * - TX：主任务发布 `orb::supercap_tx`；发送子任务被 Notifier 唤醒后打包 CAN 帧并发布 `orb::can_tx`。
+ * - TX：周期任务打包 CAN 帧并发布 `orb::can_tx`。
  * - 实际 CAN 发送由 Drivers/CanTxTask 统一落地。
  */
 
 #include "supercap.h"
-#include "cmsis_os.h"
 #include <cstdint>
 
 #include "../communication_topic/can_topics.hpp"
@@ -56,7 +55,6 @@ bool Supercap::Bind(orb::CanBus bus, BspCanHandle can, uint16_t can_rx_id, uint1
     power_compensate_max_ = 50;
     supercap_enable_status_ = SUPERCAP_STATUS_ENABLE;
 
-    // 发送侧：发布 orb::supercap_tx 后自动唤醒发送任务（资源在 Start() 中创建）
     return (can_handle_ != nullptr);
 }
 
@@ -69,37 +67,6 @@ bool Supercap::Start()
     if (can_handle_ == nullptr) {
         configASSERT(false);
         return false;
-    }
-
-    // 发送侧：发布 orb::supercap_tx 后自动唤醒发送任务（静态资源，避免动态分配）
-    if (tx_event_flags_ == nullptr) {
-        tx_evt_attr_ = osEventFlagsAttr_t{
-            .name = "supercap_tx_evt",
-            .cb_mem = &tx_evt_cb_,
-            .cb_size = sizeof(tx_evt_cb_),
-        };
-        tx_event_flags_ = osEventFlagsNew(&tx_evt_attr_);
-        if (!tx_event_flags_) {
-            configASSERT(false);
-            return false;
-        }
-
-        tx_notifier_ = Notifier(tx_event_flags_, kTxEventFlagBit);
-        orb::supercap_tx.register_notifier(&tx_notifier_);
-
-        const osThreadAttr_t kSupercapTxTaskAttr = {
-            .name = "supercap_tx",
-            .cb_mem = &tx_tcb_,
-            .cb_size = sizeof(tx_tcb_),
-            .stack_mem = tx_stack_,
-            .stack_size = sizeof(tx_stack_),
-            .priority = (osPriority_t)osPriorityNormal,
-        };
-        tx_thread_ = osThreadNew(Supercap::TxTaskEntry, this, &kSupercapTxTaskAttr);
-        if (!tx_thread_) {
-            configASSERT(false);
-            return false;
-        }
     }
 
     static const osThreadAttr_t kSupercapTaskAttr = {
@@ -183,9 +150,6 @@ void Supercap::CanRxCpltCallback(const BspCanFrame *frame)
         s_supercap_daemon->feed(now_ms());
     }
 
-    // sliding window / alive
-    flag_ += 1;
-
     const auto *temp_buffer = reinterpret_cast<const SupercapRecivedData *>(frame->data);
     recived_data_.supercap_work_status = temp_buffer->supercap_work_status;
     recived_data_.supercap_status_code = temp_buffer->supercap_status_code;
@@ -203,19 +167,6 @@ void Supercap::CanRxCpltCallback(const BspCanFrame *frame)
     orb::supercap_rx.publish(msg);
 }
 
-void Supercap::AlivePeriodElapsedCallback()
-{
-    // TODO:待实现
-}
-
-/**
- * @brief 超级电容数据处理
- * 
- */
-void Supercap::DataProcess()
-{
-    // migrated: parsing is done in CanRxCpltCallback(const BspCanFrame*)
-}
 
 /**
  * @brief 超级电容CAN通讯发送回调函数
@@ -223,57 +174,29 @@ void Supercap::DataProcess()
  */
 void Supercap::SendPeriodElapsedCallback()
 {
-    // legacy: keep periodic API but route through Topic queue
-    orb::SupercapTx tx{};
-    tx.supercap_enable_status = static_cast<uint8_t>(supercap_enable_status_);
+    // legacy: keep periodic API but send CAN frame directly
+    orb::CanTxFrame frame{};
+    frame.bus = tx_bus_;
+    frame.id = can_tx_id_;
+    frame.id_type = orb::CanIdType::Std;
+    frame.frame_type = orb::CanFrameType::Data;
+    frame.is_fd = false;
+    frame.brs = false;
+    frame.len = 8;
 
-    // legacy SupercapStatus -> topic strong enum
-    tx.supercap_charge_status = (supercap_charge_status_ == SUPERCAP_STATUS_CHARGE)
-                                   ? orb::SupercapChargeMode::Charge
-                                   : orb::SupercapChargeMode::Discharge;
+    frame.data[0] = static_cast<uint8_t>(supercap_enable_status_);
+    frame.data[1] = (supercap_charge_status_ == SUPERCAP_STATUS_CHARGE)
+                        ? static_cast<uint8_t>(orb::SupercapChargeMode::Charge)
+                        : static_cast<uint8_t>(orb::SupercapChargeMode::Discharge);
+    frame.data[2] = power_limit_max_;
+    frame.data[3] = charge_power_;
 
-    tx.power_limit_max = power_limit_max_;
-    tx.charge_power = charge_power_;
-    orb::supercap_tx.publish(tx);
-}
-
-void Supercap::TxTaskEntry(void *argument)
-{
-    auto *self = static_cast<Supercap *>(argument);
-    self->TxTask();
-}
-
-void Supercap::TxTask()
-{
-    RingSub<orb::SupercapTx, 4> sub(orb::supercap_tx);
-
-    for (;;) {
-        (void)osEventFlagsWait(tx_event_flags_, kTxEventFlagBit, osFlagsWaitAny, osWaitForever);
-
-        orb::SupercapTx msg{};
-        while (sub.copy(msg)) {
-            orb::CanTxFrame frame{};
-            frame.bus = tx_bus_;
-            frame.id = can_tx_id_;
-            frame.id_type = orb::CanIdType::Std;
-            frame.frame_type = orb::CanFrameType::Data;
-            frame.is_fd = false;
-            frame.brs = false;
-            frame.len = 8;
-
-            frame.data[0] = msg.supercap_enable_status;
-            frame.data[1] = static_cast<uint8_t>(msg.supercap_charge_status);
-            frame.data[2] = msg.power_limit_max;
-            frame.data[3] = msg.charge_power;
-
-            orb::can_tx.publish(frame);
-        }
-    }
+    orb::can_tx.publish(frame);
 }
 
 void Supercap::Task()
 {
-    // Distributed: Supercap takes user command directly from mcu_control
+    // Periodic-only sending: build TX command each cycle
     Subscription<orb::McuControl> mcu_control_sub(orb::mcu_control);
     orb::McuControl mcu{};
 
@@ -292,10 +215,9 @@ void Supercap::Task()
         power_limit_max_ = 100;
         charge_power_ = 50;
 
-        AlivePeriodElapsedCallback();
-        // 这里仍保留周期发送：内部转为 publish -> 自动发送
+        // periodic CAN send
         SendPeriodElapsedCallback();
-        osDelay(pdMS_TO_TICKS(10));
+        osDelay(10);
     }
 }
 /************************ COPYRIGHT(C) HNUST-DUST **************************/

@@ -66,10 +66,6 @@ bool DebugTools::Start()
     return true;
 }
 
-void DebugTools::VofaInit(){
-    // VOFA 发送改为 Topic 化：由 UartTxTask 统一异步发送。
-}
-
 void DebugTools::VofaSendFloat(float data)
 {
     orb::UartTxFrame pkt{};

@@ -1,4 +1,6 @@
-#include "dm_mit_min.hpp"
+#include "dm_mit.hpp"
+
+#include "motor_registry.hpp"
 
 #include "cmsis_os2.h"
 
@@ -12,12 +14,10 @@ extern "C" {
 
 static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
 
-#include "../../../communication_topic/actuator_cmd_topics.hpp"
+#include "actuator_cmd_topics.hpp"
 
-#include "../../../Drivers/bsp_dwt.h"
+#include "bsp_dwt.h"
 
-
-#include <cmath>
 #include <cstring>
 
 namespace actuator::drivers {
@@ -27,52 +27,39 @@ using alg::float_constrain;
 using alg::float_to_uint;
 using alg::uint_to_float;
 
-static constexpr size_t kBusCount = 3;
 static constexpr size_t kMaxMotors = 8;
 
-static DmMitMin* s_motors[kMaxMotors] = {};
+// 电机注册表：key = (bus + tx_id(base_std_id) + rx_id(can_rx_id))
+static MotorRegistry<DmMitMin, kMaxMotors> s_registry{};
 
+// 共享运行时线程（CMSIS-RTOS2）：消费 target/admin 两个 RingTopic。
 static StaticTask_t s_task_tcb;
 static StackType_t s_task_stack[512];
 static osThreadId_t s_task_thread = nullptr;
 
 static void dm_mit_task(void*) {
+    // 单线程消费两个 RingTopic：
+    // - orb::dm_mit_target_cmd：MIT 控制指令（角度/速度/力矩 + kp/kd）
+    // - orb::dm_mit_admin_cmd：进入/退出/清错/存零点
     RingSub<orb::DmMitTargetCmd, 16> target_sub{orb::dm_mit_target_cmd};
     RingSub<orb::DmMitAdminCmd, 8> admin_sub{orb::dm_mit_admin_cmd};
 
     for (;;) {
-        
+        // 目标控制：按 (bus + can_rx_id) 派发到对应实例并立即发 CAN 帧
         orb::DmMitTargetCmd t{};
         while (target_sub.copy(t)) {
-            DmMitMin* m = nullptr;
-            for (auto* candidate : s_motors) {
-                if (!candidate) {
-                    continue;
-                }
-                if (candidate->bus() == t.bus && candidate->can_rx_id() == t.can_rx_id) {
-                    m = candidate;
-                    break;
-                }
-            }
+            DmMitMin* m = s_registry.FindByBusRx(t.bus, static_cast<uint16_t>(t.can_rx_id));
             if (!m) {
                 continue;
             }
-            m->SetControl(t.angle, t.omega, t.torque);
+            m->SetTarget(t.angle, t.omega, t.torque);
             m->PublishMitTx(t.kp, t.kd);
         }
-        
+
+        // 管理指令：按 (bus + can_rx_id) 派发到对应实例
         orb::DmMitAdminCmd c{};
         while (admin_sub.copy(c)) {
-            DmMitMin* m = nullptr;
-            for (auto* candidate : s_motors) {
-                if (!candidate) {
-                    continue;
-                }
-                if (candidate->bus() == c.bus && candidate->can_rx_id() == c.can_rx_id) {
-                    m = candidate;
-                    break;
-                }
-            }
+            DmMitMin* m = s_registry.FindByBusRx(c.bus, static_cast<uint16_t>(c.can_rx_id));
             if (!m) {
                 continue;
             }
@@ -94,6 +81,7 @@ void DmMitMin::Init(BspCanHandle can, const Config& cfg) {
     can_ = can;
     cfg_ = cfg;
     if (cfg_.base_std_id == 0) {
+        // 默认 std_id 基址：以 master_id 左移 4bit 形成高位（低 4bit 放 can_rx_id）。
         cfg_.base_std_id = static_cast<uint16_t>(cfg_.master_id) << 4;
     }
     joined_runtime_ = false;
@@ -107,24 +95,9 @@ void DmMitMin::JoinRuntime()
         return;
     }
 
-    // register into the small motor list (replace if same key exists)
-    bool stored = false;
-    for (auto& slot : s_motors) {
-        if (slot && slot->bus() == cfg_.bus && slot->can_rx_id() == cfg_.can_rx_id) {
-            slot = this;
-            stored = true;
-            break;
-        }
-    }
-    if (!stored) {
-        for (auto& slot : s_motors) {
-            if (!slot) {
-                slot = this;
-                stored = true;
-                break;
-            }
-        }
-    }
+    // 注册或替换：key = (bus + base_std_id + can_rx_id)
+    const MotorKey key{cfg_.bus, cfg_.base_std_id, static_cast<uint16_t>(cfg_.can_rx_id)};
+    const bool stored = s_registry.RegisterOrReplace(key, this);
     configASSERT(stored);
 
     if (!s_task_thread) {
@@ -152,7 +125,13 @@ void DmMitMin::CanRxCpltCallback(const BspCanFrame* frame) {
 
     const uint8_t* data = frame->data;
 
-    // DM normal rx payload: [id(4)|status(4)], angle(16), omega(12), torque(12), mosT, rotT
+    // DM 普通反馈帧（8 bytes）：
+    // byte0: [id(4) | status(4)]
+    // byte1-2: angle (16)
+    // byte3-4: omega (12)
+    // byte4-5: torque (12)
+    // byte6: mos temp
+    // byte7: rotor temp
     const uint8_t id4 = (data[0] & 0x0F);
     if (id4 != (cfg_.can_rx_id & 0x0F)) {
         return;
@@ -168,13 +147,19 @@ void DmMitMin::CanRxCpltCallback(const BspCanFrame* frame) {
 }
 
 void DmMitMin::SetControl(float angle, float omega, float torque) {
-    ctrl_angle_ = float_constrain(angle, -cfg_.angle_max, cfg_.angle_max);
-    ctrl_omega_ = float_constrain(omega, -cfg_.omega_max, cfg_.omega_max);
-    ctrl_torque_ = float_constrain(torque, -cfg_.torque_max, cfg_.torque_max);
+    SetTarget(angle, omega, torque);
+}
+
+void DmMitMin::SetTarget(float angle_rad, float omega_rad_s, float torque_nm) {
+    ctrl_angle_ = float_constrain(angle_rad, -cfg_.angle_max, cfg_.angle_max);
+    ctrl_omega_ = float_constrain(omega_rad_s, -cfg_.omega_max, cfg_.omega_max);
+    ctrl_torque_ = float_constrain(torque_nm, -cfg_.torque_max, cfg_.torque_max);
 }
 
 void DmMitMin::PackMit(float p, float v, float kp, float kd, float t, uint8_t out[8],
                        float pmax, float vmax, float kpmax, float kdmax, float tmax) {
+    // MIT 协议打包：
+    // p(16) v(12) kp(12) kd(12) t(12) 按官方格式拼到 8 字节。
     std::memset(out, 0, 8);
 
     const uint16_t p_u16 = static_cast<uint16_t>(float_to_uint(p, -pmax, pmax, 16));
@@ -194,7 +179,9 @@ void DmMitMin::PackMit(float p, float v, float kp, float kd, float t, uint8_t ou
 }
 
 void DmMitMin::PublishFrame(uint16_t std_id, const uint8_t data[8], uint8_t len) {
-    if (!can_) return;
+    if (!can_) {
+        return;
+    }
 
     orb::CanTxFrame f{};
     f.bus = cfg_.bus;
@@ -224,6 +211,7 @@ void DmMitMin::PublishMitTx(float kp, float kd) {
 
 void DmMitMin::PublishAdminTail(uint8_t tail)
 {
+    // 管理帧：前 7 字节固定 0xFF，最后 1 字节是操作码 tail。
     uint8_t data[8];
     for (int i = 0; i < 7; ++i) {
         data[i] = 0xFF;

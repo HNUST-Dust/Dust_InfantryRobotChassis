@@ -7,14 +7,17 @@
  * - 电机驱动与 CAN 输出由 Device/actuator 运行时模块负责（CAN TX 仍通过 Topic：`orb::can_tx`）。
  */
 
-// app
 #include "app_chassis.h"
-#include "cmsis_os2.h"
-
-#include "arm_math.h"
 
 #include "math/alg_math.h"
 
+#include "../communication_topic/actuator_cmd_topics.hpp"
+#include "../communication_topic/gimbal_state_topics.hpp"
+#include "../communication_topic/mcu_topics.hpp"
+#include "../Device/motor_ids.hpp"
+
+#include "cmsis_os2.h"
+#include "arm_math.h"
 extern "C" {
 #include "FreeRTOS.h"
 #include "task.h" // for taskDISABLE_INTERRUPTS used by configASSERT
@@ -25,11 +28,6 @@ static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
 // 满足 clang-tidy: "Included header FreeRTOS.h is not used directly"
 static constexpr uint32_t kFreeRtosTickPeriodMs = portTICK_PERIOD_MS;
 
-#include "../communication_topic/actuator_cmd_topics.hpp"
-#include "../communication_topic/gimbal_state_topics.hpp"
-#include "../communication_topic/mcu_topics.hpp"
-
-#include "../Device/motor_ids.hpp"
 
 Chassis& Chassis::Instance()
 {

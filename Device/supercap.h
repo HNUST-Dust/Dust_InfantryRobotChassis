@@ -1,6 +1,6 @@
 /**
  * @file supercap.h
- * @brief 超级电容设备封装：CAN RX 解析 + Topic 发布；Topic 驱动的 CAN TX 发送。
+ * @brief 超级电容设备封装：CAN RX 解析 + Topic 发布；周期性的 CAN TX 发送。
  *
  * **定位**
  * - 超级电容是底盘功率链路的一部分：接收电容回报数据，按业务命令发送工作/充放电/功率限制等。
@@ -8,14 +8,13 @@
  * **数据流（Topic 化）**
  * - 输入（业务/系统侧）：
  *   - `orb::mcu_control`：用户/上层对 supercap 的控制意图（charge/discharge 等）
- *   - `orb::supercap_tx`：将要发送给 supercap 的抽象命令（内部由本模块发布，也可由其它模块发布）
  * - 输出：
  *   - `orb::supercap_rx`：来自 supercap 的状态/能量/电压等数据
  *   - `orb::can_tx`：统一 CAN 发送 Topic（由 Drivers/CanTxTask 落地到 BSP）
  *
  * **线程/回调模型**
- * - 主任务 `Task()`：周期性从 `orb::mcu_control` 读取意图，并发布 `orb::supercap_tx`。
- * - 发送子任务 `TxTask()`：由 `orb::supercap_tx` 的 Notifier 唤醒，把消息打包成 CAN 帧并发布到 `orb::can_tx`。
+ * - 主任务 `Task()`：周期性从 `orb::mcu_control` 读取意图，并周期发送 CAN 帧。
+ * - 周期发送：在周期任务内把命令打包成 CAN 帧并发布到 `orb::can_tx`。
  * - `CanRxCpltCallback()`：由 Platform/CAN RX 回调路径调用，负责解析帧并发布 `orb::supercap_rx`。
  *
  * **在线判据/守护**
@@ -40,11 +39,8 @@
 
 extern "C" {
 #include "FreeRTOS.h"
-#include "event_groups.h"
+#include "task.h"
 }
-
-// Topic notify
-#include "../communication_topic/topic_notify.hpp"
 
 /**
  * @brief 超级电容状态
@@ -138,9 +134,7 @@ public:
     // Platform RX (HAL-free): feed a decoded CAN frame
     void CanRxCpltCallback(const BspCanFrame *frame);
 
-    void AlivePeriodElapsedCallback();
-
-    // legacy: keep periodic hook (internally publishes Topic)
+    // legacy: keep periodic hook (periodic CAN send)
     void SendPeriodElapsedCallback();
 
     void Task();
@@ -169,7 +163,6 @@ protected:
     uint8_t battery_voltage_ = 0;
     uint8_t power_compensate_max_ = 150.0f;
 
-    void DataProcess();
     void Output();
     static void TaskEntry(void *param);
 
@@ -177,22 +170,6 @@ protected:
 
     StaticTask_t tcb_{};
     StackType_t stack_[512]{};
-
-    // ===== Topic 化发送：发布即自动发送 =====
-    static void TxTaskEntry(void *param);
-    void TxTask();
-
-    osThreadId_t tx_thread_ = nullptr;
-
-    StaticTask_t tx_tcb_{};
-    StackType_t tx_stack_[384]{};
-
-    osEventFlagsId_t tx_event_flags_ = nullptr;
-    StaticEventGroup_t tx_evt_cb_{};
-    osEventFlagsAttr_t tx_evt_attr_{};
-
-    static constexpr uint32_t kTxEventFlagBit = 1u << 0;
-    Notifier tx_notifier_{nullptr, kTxEventFlagBit};
 
     bool started_ = false;
 

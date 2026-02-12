@@ -40,7 +40,6 @@ public:
 
     bool Start();
 
-    void VofaInit();
     void VofaSendFloat(float data);
     void VofaSendTail();
     void VofaReceiveCallback(uint8_t *buffer, uint16_t length);

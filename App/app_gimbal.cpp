@@ -7,25 +7,24 @@
  * - 电机反馈与 CAN 报文由 Device/actuator 运行时模块处理（CAN TX 仍通过 Topic：`orb::can_tx`）。
  */
 #include "app_gimbal.h"
-#include "cmsis_os2.h"
 
+#include "../communication_topic/actuator_cmd_topics.hpp"
+#include "../communication_topic/gimbal_state_topics.hpp"
+#include "../communication_topic/mcu_topics.hpp"
+#include "../Device/motor_ids.hpp"
+
+#include "cmsis_os2.h"
 extern "C" {
 #include "FreeRTOS.h" // NOLINT(misc-include-cleaner)
 #include "task.h"
 }
+#include <cstring>
 
 static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
 
 [[maybe_unused]] static constexpr TickType_t kFreeRtosTick0 = static_cast<TickType_t>(0);
 
-#include "../communication_topic/actuator_cmd_topics.hpp"
 
-#include "../communication_topic/gimbal_state_topics.hpp"
-#include "../communication_topic/mcu_topics.hpp"
-
-#include "../Device/motor_ids.hpp"
-
-#include <cstring>
 
 namespace {
 inline uint32_t now_ms()
@@ -203,24 +202,20 @@ void Gimbal::Start()
 
 void Gimbal::Exit()
 {
-    {
-        orb::DmMitTargetCmd t{};
-        t.bus = orb::CanBus::CAN3;
-        t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
-        t.angle = 0.0f;
-        t.omega = 0.0f;
-        t.torque = 0.0f;
-        orb::dm_mit_target_cmd.publish(t);
-    }
-    {
-        orb::DmMitTargetCmd t{};
-        t.bus = orb::CanBus::CAN3;
-        t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
-        t.angle = 0.0f;
-        t.omega = 0.0f;
-        t.torque = 0.0f;
-        orb::dm_mit_target_cmd.publish(t);
-    }
+    orb::DmMitTargetCmd t{};
+    t.bus = orb::CanBus::CAN3;
+    t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+    t.angle = 0.0f;
+    t.omega = 0.0f;
+    t.torque = 0.0f;
+    orb::dm_mit_target_cmd.publish(t);
+    
+    t.bus = orb::CanBus::CAN3;
+    t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+    t.angle = 0.0f;
+    t.omega = 0.0f;
+    t.torque = 0.0f;
+    orb::dm_mit_target_cmd.publish(t);
 }
 
 /**
@@ -287,28 +282,24 @@ void Gimbal::SetYawZero()
 
 void Gimbal::Output()
 {
-    {
-        orb::DmMitTargetCmd t{};
-        t.bus = orb::CanBus::CAN3;
-        t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
-        t.angle = GetTargetYawAngle();
-        t.omega = GetTargetYawOmega();
-        t.torque = 0.0f;
-        t.kp = 0.0f;
-        t.kd = 0.0f;
-        orb::dm_mit_target_cmd.publish(t);
-    }
-    {
-        orb::DmMitTargetCmd t{};
-        t.bus = orb::CanBus::CAN3;
-        t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
-        t.angle = GetTargetPitchAngle();
-        t.omega = GetTargetPitchOmega();
-        t.torque = 0.0f;
-        t.kp = 0.0f;
-        t.kd = 0.0f;
-        orb::dm_mit_target_cmd.publish(t);
-    }
+    orb::DmMitTargetCmd t{};
+    t.bus = orb::CanBus::CAN3;
+    t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+    t.angle = GetTargetYawAngle();
+    t.omega = GetTargetYawOmega();
+    t.torque = 0.0f;
+    t.kp = 0.0f;
+    t.kd = 0.0f;
+    orb::dm_mit_target_cmd.publish(t);
+
+    t.bus = orb::CanBus::CAN3;
+    t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+    t.angle = GetTargetPitchAngle();
+    t.omega = GetTargetPitchOmega();
+    t.torque = 0.0f;
+    t.kp = 0.0f;
+    t.kd = 0.0f;
+    orb::dm_mit_target_cmd.publish(t);
 }
 
 /**
@@ -352,15 +343,14 @@ void Gimbal::Task()
     orb::McuImu imu{};
 
     // 3s 等待陀螺仪收敛：仍然以“收到新外部数据”为准喂守护，避免启动阶段误判离线。
-    {
-        const uint32_t t0 = now_ms();
-        while ((now_ms() - t0) < 3000u) {
-            (void)mcu_control_sub.copy(mcu);
-            (void)mcu_autoaim_sub.copy(autoaim);
-            (void)mcu_imu_sub.copy(imu);
-            osDelay(1);
-        }
+    const uint32_t t0 = now_ms();
+    while ((now_ms() - t0) < 3000u) {
+        (void)mcu_control_sub.copy(mcu);
+        (void)mcu_autoaim_sub.copy(autoaim);
+        (void)mcu_imu_sub.copy(imu);
+        osDelay(1);
     }
+
     if (!minipc_filters_inited_) {
         minipc_yaw_recive_filter_.configure(20.0f, 0.001f);
         minipc_pitch_recive_filter_.configure(20.0f, 0.001f);
@@ -435,45 +425,37 @@ void Gimbal::Task()
             SetYawZero();
 
             // best-effort: 对两台 DM 电机分别下发 ClearError/Enter
-            {
-                orb::DmMitAdminCmd c{};
-                c.bus = orb::CanBus::CAN3;
+            orb::DmMitAdminCmd c{};
+            c.bus = orb::CanBus::CAN3;
 
-                c.op = orb::DmMitAdminOp::ClearError;
-                c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
-                orb::dm_mit_admin_cmd.publish(c);
-                c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
-                orb::dm_mit_admin_cmd.publish(c);
+            c.op = orb::DmMitAdminOp::ClearError;
+            c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+            orb::dm_mit_admin_cmd.publish(c);
+            c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+            orb::dm_mit_admin_cmd.publish(c);
 
-                c.op = orb::DmMitAdminOp::Enter;
-                c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
-                orb::dm_mit_admin_cmd.publish(c);
-                c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
-                orb::dm_mit_admin_cmd.publish(c);
-            }
+            c.op = orb::DmMitAdminOp::Enter;
+            c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+            orb::dm_mit_admin_cmd.publish(c);
+            c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+            orb::dm_mit_admin_cmd.publish(c);
         }
 
-        if(first_run_flag == 0){ // 第一次运行到这里，pre_pitch_angle未初始化
-            first_run_flag = 1;
-            pre_pitch_angle_ = target_pitch_angle_;
-        }
         SelfResolution();
 
         // 发布 gimbal 状态（供其他模块订阅读取）
-        {
-            orb::GimbalState st{};
-            st.yaw_angle = GetNowYawAngle();
-            st.yaw_omega = GetNowYawOmega();
-            st.pitch_angle = GetNowPitchAngle();
-            st.pitch_omega = GetNowPitchOmega();
-            st.yaw_angle_noncumulative = GetYawNowAngleNoncumulative();
-            st.pitch_angle_noncumulative = GetPitchNowAngleNoncumulative();
-            orb::gimbal_state.publish(st);
-        }
+        orb::GimbalState st{};
+        st.yaw_angle = GetNowYawAngle();
+        st.yaw_omega = GetNowYawOmega();
+        st.pitch_angle = GetNowPitchAngle();
+        st.pitch_omega = GetNowPitchOmega();
+        st.yaw_angle_noncumulative = GetYawNowAngleNoncumulative();
+        st.pitch_angle_noncumulative = GetPitchNowAngleNoncumulative();
+        orb::gimbal_state.publish(st);
 
         Output();
+
         osDelay(1); // 1khz电机控制频率
-        pre_pitch_angle_ = target_pitch_angle_;
     }
 }
 

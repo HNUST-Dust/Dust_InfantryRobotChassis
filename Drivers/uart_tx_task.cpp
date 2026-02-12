@@ -131,14 +131,12 @@ void UartTxTask::Task()
         };
 
         // A) drain generic UART frames
-        {
-            orb::UartTxFrame pkt{};
-            while (sub.copy(pkt)) {
-                if (pkt.len == 0 || pkt.len > sizeof(pkt.bytes)) {
-                    continue;
-                }
-                send_bytes(pkt.port, pkt.bytes, pkt.len, pkt.throttle_ms);
+        orb::UartTxFrame pkt{};
+        while (sub.copy(pkt)) {
+            if (pkt.len == 0 || pkt.len > sizeof(pkt.bytes)) {
+                continue;
             }
+            send_bytes(pkt.port, pkt.bytes, pkt.len, pkt.throttle_ms);
         }
 
         // 兜底：避免空转

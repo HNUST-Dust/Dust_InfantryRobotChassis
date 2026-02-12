@@ -35,8 +35,8 @@
 #include "../Device/dvc_referee.h"
 #include "../Device/motor_ids.hpp"
 
-#include "../Device/actuator/drivers/dji_c6xx_min.hpp"
-#include "../Device/actuator/drivers/dm_mit_min.hpp"
+#include "motors/dji_c6xx.hpp"
+#include "motors/dm_mit.hpp"
 
 // Motor instances are defined in motor driver .cpp; AppWiring only does bus-level ID dispatch.
 

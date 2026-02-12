@@ -2,9 +2,9 @@
 
 #include <cstdint>
 
-#include "../../../Platform/bsp_can_port.h"
+#include "bsp_can_port.h"
 #include "control/alg_pid.h"
-#include "../../../communication_topic/can_topics.hpp"
+#include "can_topics.hpp"
 
 namespace actuator::drivers {
 
@@ -31,16 +31,10 @@ public:
 
     void Init(BspCanHandle can, const Config& cfg);
 
-    // Registers this motor into a DJI group-current TX loop.
-    // Slot mapping is derived from (rx_std_id - (group_std_id + 1)) in range [0..3].
-    void JoinOmegaGroup(const struct DjiC6xxGroupTxConfig& tx_cfg);
-
-    [[deprecated("Split into Init() + JoinOmegaGroup().")]]
-    void InitAndJoinOmegaGroup(BspCanHandle can, const Config& cfg, const struct DjiC6xxGroupTxConfig& tx_cfg) {
-        Init(can, cfg);
-        SetTargetOmega(0.0f);
-        JoinOmegaGroup(tx_cfg);
-    }
+    // 注册该电机到共享运行时线程，并参与“组电流”组帧发送。
+    // - tx_id: 组帧发送 ID，DJI C6xx 默认为 0x200
+    // - slot: 由 (rx_id - (tx_id + 1)) 推导，范围 [0..3]
+    void JoinRuntime(uint16_t tx_id = 0x200);
 
     // CAN RX complete callback entry (called from bus-level ID dispatch)
     void CanRxCpltCallback(const BspCanFrame* frame);
@@ -55,13 +49,17 @@ public:
 
     float now_angle_rad() const { return now_angle_; }
     float now_omega_out_rad_s() const { return now_omega_out_; }
+    // 统一命名：now_omega_rad_s 表示“输出轴角速度”（与 now_omega_out_rad_s 含义一致）
+    float now_omega_rad_s() const { return now_omega_out_; }
     float now_current_a() const { return now_current_; }
     float temperature_c() const { return temperature_; }
 
     float target_current_a() const { return target_current_; }
+    float target_omega_rad_s() const { return target_omega_out_; }
 
     orb::CanBus bus() const { return cfg_.bus; }
-    uint16_t rx_std_id() const { return cfg_.rx_std_id; }
+    uint16_t rx_id() const { return cfg_.rx_std_id; }
+    uint16_t tx_id() const { return joined_tx_id_; }
 
 private:
     static constexpr float k2pi = 6.283185307179586f;
@@ -79,23 +77,22 @@ private:
     float target_omega_out_ = 0.0f;
     float target_current_ = 0.0f;
 
+    // JoinRuntime 时记录的组帧发送 ID（用于统一 tx_id 命名）。
+    uint16_t joined_tx_id_ = 0;
+
     alg::Pid pid_omega_{};
 };
 
 // ===== RTOS task (driver-level wiring) =====
-// 通用链路：
-//   orb::dji_c6xx_omega_cmd (按 rx_std_id 定位) -> PID Update -> 0x200/0x1FF/0x2FF 组帧 -> orb::can_tx
-struct DjiC6xxGroupTxConfig {
-    orb::CanBus bus = orb::CanBus::CAN1;
-    uint16_t group_std_id = 0x200;
-};
+// Runtime thread (driver-level wiring):
+//   orb::dji_c6xx_omega_cmd (按 rx_id 定位) -> PID Update -> group frame(tx_id) -> orb::can_tx
 
 } // namespace actuator::drivers
 
 namespace actuator::instances {
 
 // ===== Global DJI motor instances =====
-// 定义与实现见：Device/actuator/drivers/dji_c6xx_min.cpp
+// 定义与实现见：Device/motors/dji_c6xx_min.cpp
 
 extern actuator::drivers::DjiC6xxMin dji_201;
 extern actuator::drivers::DjiC6xxMin dji_202;

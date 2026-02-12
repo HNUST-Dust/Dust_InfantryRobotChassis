@@ -20,31 +20,23 @@
  */
 
 #include "system_startup.h"
-
 #include "AppWiring.h"
-
 #include "bsp_can_port.h"
 #include "bsp_uart_port.h"
-
 #include "bsp_dwt.h"
-
-// Daemon supervisor (watchdog-like health monitor)
 #include "../daemon_supervisor/supervisor.hpp"
-
 #include "../Drivers/can_tx_task.h"
 #include "../Drivers/uart_tx_task.h"
-
 #include "../communication_topic/actuator_cmd_topics.hpp"
-
 #include "../Communication/dvc_MCU_comm.h"
 #include "../Device/supercap.h"
 #include "../Device/dvc_referee.h"
 #include "../Device/debug_tools.h"
 #include "../Device/motor_ids.hpp"
-#include "../Device/actuator/drivers/dji_c6xx_min.hpp"
-#include "../Device/actuator/drivers/dm_mit_min.hpp"
-#include "../Interaction/app_chassis.h"
-#include "../Interaction/app_gimbal.h"
+#include "motors/dji_c6xx.hpp"
+#include "motors/dm_mit.hpp"
+#include "../App/app_chassis.h"
+#include "../App/app_gimbal.h"
 
 namespace {
 static void daemon_system_fault(DaemonClient&)
@@ -55,17 +47,15 @@ static void daemon_system_fault(DaemonClient&)
 
     // Also request actuator-layer exit for DM motors (best-effort)
     // Motor module is business-decoupled; address by bus + motor id.
-    {
-        orb::DmMitAdminCmd c{};
-        c.bus = orb::CanBus::CAN3;
-        c.op = orb::DmMitAdminOp::Exit;
+    orb::DmMitAdminCmd c{};
+    c.bus = orb::CanBus::CAN3;
+    c.op = orb::DmMitAdminOp::Exit;
 
-        c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
-        orb::dm_mit_admin_cmd.publish(c);
+    c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+    orb::dm_mit_admin_cmd.publish(c);
 
-        c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
-        orb::dm_mit_admin_cmd.publish(c);
-    }
+    c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+    orb::dm_mit_admin_cmd.publish(c);
 }
 } // namespace
 
@@ -122,25 +112,22 @@ void Modules_BringUp(void)
         auto c4 = c;
         c4.rx_std_id = static_cast<uint16_t>(motor_ids::kWheel4);
 
-        actuator::drivers::DjiC6xxGroupTxConfig tx_cfg{};
-        tx_cfg.bus = orb::CanBus::CAN1;
-        tx_cfg.group_std_id = 0x200;
 
         actuator::instances::dji_201.Init(can1, c1);
         actuator::instances::dji_201.SetTargetOmega(0.0f);
-        actuator::instances::dji_201.JoinOmegaGroup(tx_cfg);
+        actuator::instances::dji_201.JoinRuntime();
 
         actuator::instances::dji_202.Init(can1, c2);
         actuator::instances::dji_202.SetTargetOmega(0.0f);
-        actuator::instances::dji_202.JoinOmegaGroup(tx_cfg);
+        actuator::instances::dji_202.JoinRuntime();
 
         actuator::instances::dji_203.Init(can1, c3);
         actuator::instances::dji_203.SetTargetOmega(0.0f);
-        actuator::instances::dji_203.JoinOmegaGroup(tx_cfg);
+        actuator::instances::dji_203.JoinRuntime();
 
         actuator::instances::dji_204.Init(can1, c4);
         actuator::instances::dji_204.SetTargetOmega(0.0f);
-        actuator::instances::dji_204.JoinOmegaGroup(tx_cfg);
+        actuator::instances::dji_204.JoinRuntime();
     }
 
     {
