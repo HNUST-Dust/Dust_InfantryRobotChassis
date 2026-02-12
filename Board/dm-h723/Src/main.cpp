@@ -40,8 +40,6 @@ extern "C" int main(void)
     /* Init scheduler */
     osKernelInitialize();
 
-    System_Boot();
-
     static const osThreadAttr_t kStartupTaskAttr = {
         .name = "startup_task",
         .stack_size = 512,
@@ -51,6 +49,7 @@ extern "C" int main(void)
 
     /* Start scheduler */
     osKernelStart();
+    
     while (1)
     {
     }
