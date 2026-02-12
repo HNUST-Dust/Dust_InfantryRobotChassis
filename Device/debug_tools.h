@@ -32,6 +32,9 @@ private:
     bool started_ = false;
 
 public:
+    // Singleton accessor (explicit call-site; no global free-function)
+    static DebugTools& Instance();
+
     // Bind UART handle (for RX wiring reference) and select VOFA TX port (for orb::uart_tx)
     void Bind(BspUartHandle uart, orb::UartPort vofa_port);
 
@@ -42,8 +45,5 @@ public:
     void VofaSendTail();
     void VofaReceiveCallback(uint8_t *buffer, uint16_t length);
 };
-
-// Module singleton accessor (no Context/service-locator layer)
-DebugTools& DebugTools_Instance();
 
 #endif // DEBUG_TOOLS_H_

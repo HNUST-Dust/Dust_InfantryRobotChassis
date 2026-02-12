@@ -22,11 +22,21 @@ public:
 
     void Init(BspCanHandle can, const Config& cfg);
 
-    void OnRx(const uint8_t data[8]);
+    // Registers this motor into the DM MIT control runtime.
+    // After JoinRuntime(), motor-level topics (orb::dm_mit_target_cmd / orb::dm_mit_admin_cmd)
+    // will be dispatched to this instance by (bus + can_rx_id).
+    void JoinRuntime();
+
+    // CAN RX complete callback entry (called from bus-level ID dispatch)
+    void CanRxCpltCallback(const BspCanFrame* frame);
 
     void SetControl(float angle, float omega, float torque);
 
     void PublishMitTx(float kp = 0.0f, float kd = 0.0f);
+
+    // Bring-up helper (blocking, best-effort).
+    // Uses DWT delay internally so it can run before osKernelStart().
+    void BringUpDefault();
 
     void Enter();
     void Exit();
@@ -37,9 +47,13 @@ public:
     float now_omega() const { return now_omega_; }
     float now_torque() const { return now_torque_; }
 
+    orb::CanBus bus() const { return cfg_.bus; }
+    uint8_t can_rx_id() const { return cfg_.can_rx_id; }
+
 private:
     Config cfg_{};
     BspCanHandle can_ = nullptr;
+    bool joined_runtime_ = false;
 
     float now_angle_ = 0.0f;
     float now_omega_ = 0.0f;
@@ -48,12 +62,20 @@ private:
     float ctrl_angle_ = 0.0f;
     float ctrl_omega_ = 0.0f;
     float ctrl_torque_ = 0.0f;
-
-    static uint16_t MitTxStdId(uint8_t master_id);
     static void PackMit(float p, float v, float kp, float kd, float t, uint8_t out[8],
                         float pmax, float vmax, float kpmax, float kdmax, float tmax);
 
     void PublishFrame(uint16_t std_id, const uint8_t data[8], uint8_t len);
+    void PublishAdminTail(uint8_t tail);
 };
-
 } // namespace actuator::drivers
+
+namespace actuator::instances {
+
+// ===== Global DM motor instances =====
+// 定义与实现见：Device/actuator/drivers/dm_mit_min.cpp
+
+extern actuator::drivers::DmMitMin dm_01;
+extern actuator::drivers::DmMitMin dm_02;
+
+} // namespace actuator::instances

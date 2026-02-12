@@ -36,6 +36,9 @@
 
 class Referee{
 public:
+    // Singleton accessor (explicit call-site; no global free-function)
+    static Referee& Instance();
+
     // 依赖注入（HAL-free）
     // 返回 false 表示拒绝此次绑定（例如已启动后不允许重新 Bind）
     bool Bind(BspUartHandle uart);
@@ -71,7 +74,7 @@ public:
     float GetInitialSpeed() { (void)shoot_sub_.copy(shoot_cache_); return shoot_cache_.initial_speed; }
 
 private:
-    static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
+    static void TaskEntry(void *param);
 
     // ...protocol definitions kept as private nested types to avoid对外暴露完整协议布局...
     struct StatusData {
@@ -126,6 +129,3 @@ private:
     orb::RefereeStatus status_cache_{};
     orb::RefereeShoot shoot_cache_{};
 };
-
-// Module singleton accessor (no Context/service-locator layer)
-Referee& Referee_Instance();

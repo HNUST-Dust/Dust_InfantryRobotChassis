@@ -16,6 +16,17 @@
 
 #include "supervisor.hpp"
 
+extern "C" {
+#include "FreeRTOS.h"
+#include "task.h"
+}
+
+namespace {
+osThreadId_t s_daemon_thread_id = nullptr;
+StaticTask_t s_daemon_tcb{};
+StackType_t s_daemon_stack[256]{}; // 256 * 4 bytes = 1KB
+} // namespace
+
 
 // ===== 静态成员变量定义 =====
 // 注意：静态成员必须在类外定义，否则链接时会报未定义错误
@@ -146,6 +157,45 @@ void DaemonSupervisor::tick(uint32_t now_ms)
 void DaemonSupervisor::set_system_fault_hook(SystemFaultHook hook)
 {
     system_hook_ = hook;
+}
+
+osThreadId_t DaemonSupervisor::Start(SystemFaultHook hook)
+{
+    set_system_fault_hook(hook);
+    return Start(ThreadConfig{});
+}
+
+osThreadId_t DaemonSupervisor::Start(SystemFaultHook hook, ThreadConfig cfg)
+{
+    set_system_fault_hook(hook);
+    return Start(cfg);
+}
+
+osThreadId_t DaemonSupervisor::Start()
+{
+    return Start(ThreadConfig{});
+}
+
+osThreadId_t DaemonSupervisor::Start(ThreadConfig cfg)
+{
+    // Must be called before any module registers clients.
+    DaemonSupervisor::init();
+
+    if (s_daemon_thread_id != nullptr) {
+        return s_daemon_thread_id;
+    }
+
+    const osThreadAttr_t attr = {
+        .name = cfg.name,
+        .cb_mem = &s_daemon_tcb,
+        .cb_size = sizeof(s_daemon_tcb),
+        .stack_mem = s_daemon_stack,
+        .stack_size = sizeof(s_daemon_stack),
+        .priority = cfg.priority,
+    };
+
+    s_daemon_thread_id = osThreadNew(daemon_task, nullptr, &attr);
+    return s_daemon_thread_id;
 }
 
 

@@ -40,7 +40,7 @@
 
 - UART7 → `DebugTools_Instance().VofaReceiveCallback(buffer, length)`
 - UART1 → `Referee_Instance().RxCpltCallback(buffer, length)`
-- CAN1/2/3 → `MotorActuatorTask_Instance().OnCanXRx(frame)`
+- CAN1/2/3 → 按 ID 分发到各电机实例 `CanRxCpltCallback(frame)`
 - CAN2（部分 ID）→ `McuComm_Instance().Can*RxCpltCallback(frame)`
 - CAN3（0x100）→ `Supercap_Instance().CanRxCpltCallback(frame)`
 

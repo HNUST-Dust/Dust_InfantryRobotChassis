@@ -32,7 +32,7 @@ DaemonClient* s_supercap_daemon = nullptr;
 #include "../communication_topic/device_topics.hpp"
 #include "../communication_topic/mcu_topics.hpp"
 
-Supercap& Supercap_Instance()
+Supercap& Supercap::Instance()
 {
     static Supercap inst;
     return inst;

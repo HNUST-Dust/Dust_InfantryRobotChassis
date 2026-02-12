@@ -8,7 +8,7 @@ namespace orb {
 
 // 业务层电机话题（app-level）：
 // - 不暴露 CAN bus / StdId
-// - MotorActuatorTask 在初始化时根据 motor_cfg::Config 完成映射
+// - 电机实例在对应模块（Chassis/Gimbal）绑定后完成映射与 CAN 输出
 
 // ===== 底盘（DJI 轮电机） =====
 

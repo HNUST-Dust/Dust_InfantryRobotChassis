@@ -33,8 +33,8 @@ void Modules_BringUp(void);
 // L5: App bring-up
 void App_Start(void);
 
-// One-shot entry to run all bring-up stages in order (called from RTOS init task)
-void System_Boot(void);
+// entry to run all bring-up stages in order
+void startup_thread(void *argument);
 
 #ifdef __cplusplus
 }

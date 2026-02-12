@@ -10,11 +10,11 @@
  *
  * 数据流（以当前实现为准）：
  * ========================
- * - UART7: Debug/VOFA → `DebugTools_Instance().VofaReceiveCallback()`
- * - UART1: Referee → `Referee_Instance().RxCpltCallback()`
- * - CAN1/2/3: MotorActuatorTask → `OnCanXRx()`
- * - CAN2(特定 ID): 外部 MCU 数据 → `McuComm_Instance().Can*RxCpltCallback()`
- * - CAN3(0x100): Supercap → `Supercap_Instance().CanRxCpltCallback()`
+ * - UART7: Debug/VOFA → `DebugTools::Instance().VofaReceiveCallback()`
+ * - UART1: Referee → `Referee::Instance().RxCpltCallback()`
+ * - CAN1/2/3: Motors → 按电机 ID 分发到各电机实例 `CanRxCpltCallback()`
+ * - CAN2(特定 ID): 外部 MCU 数据 → `McuComm::Instance().Can*RxCpltCallback()`
+ * - CAN3(0x100): Supercap → `Supercap::Instance().CanRxCpltCallback()`
  *
  * 注意事项：
  * =========
@@ -27,69 +27,109 @@
 #include "bsp_can_port.h"
 #include "bsp_uart_port.h"
 
-#include "app_chassis.h" // for Chassis_Instance()
-#include "app_gimbal.h"  // for Gimbal_Instance()
 #include "../Communication/dvc_MCU_comm.h"  // AUTOAIM_INFO_ID / REMOTE_CONTROL_ID / IMU_INFO_ID
 
 #include "../Device/debug_tools.h"
 
 #include "../Device/supercap.h"
 #include "../Device/dvc_referee.h"
-#include "../Device/motor_actuator_task.h"  // MotorActuatorTask complete type for OnCanXRy
+#include "../Device/motor_ids.hpp"
 
-// Standalone modules: accessed via *_Instance() accessors
+#include "../Device/actuator/drivers/dji_c6xx_min.hpp"
+#include "../Device/actuator/drivers/dm_mit_min.hpp"
+
+// Motor instances are defined in motor driver .cpp; AppWiring only does bus-level ID dispatch.
+
+// Standalone modules: accessed via Class::Instance() accessors
 
 // USART7 debug
 static void uart7_debug_callback(uint8_t *buffer, uint16_t length)
 {
-    DebugTools_Instance().VofaReceiveCallback(buffer, length);
+    DebugTools::Instance().VofaReceiveCallback(buffer, length);
 }
 
 // USART1 referee
 static void uart1_referee_callback(uint8_t *buffer, uint16_t length)
 {
-    Referee_Instance().RxCpltCallback(buffer, length);
+    Referee::Instance().RxCpltCallback(buffer, length);
 }
 
-// CAN RX fan-out callbacks (per-module)
-static void can1_motor_callback(const BspCanFrame *frame)
+// CAN RX callbacks (one per bus): dispatch by ID inside.
+static void can1_rx_callback(const BspCanFrame* frame)
 {
-    MotorActuatorTask_Instance().OnCan1Rx(frame);
-}
+    if (!frame) {
+        return;
+    }
+    if (frame->id_type != BSP_CAN_ID_STD || frame->frame_type != BSP_CAN_FRAME_DATA || frame->len < 8u) {
+        return;
+    }
 
-static void can2_motor_callback(const BspCanFrame *frame)
-{
-    MotorActuatorTask_Instance().OnCan2Rx(frame);
-}
-
-static void can3_motor_callback(const BspCanFrame *frame)
-{
-    MotorActuatorTask_Instance().OnCan3Rx(frame);
-}
-
-static void can2_mcu_callback(const BspCanFrame *frame)
-{
-    switch (frame->id)
-    {
-        case AUTOAIM_INFO_ID:
-            McuComm_Instance().CanAutoAimInfoRxCpltCallback(frame);
-            break;
-        case REMOTE_CONTROL_ID:
-            McuComm_Instance().CanRemoteControlRxCpltCallback(frame);
-            break;
-        case IMU_INFO_ID:
-            McuComm_Instance().CanImuInfoRxCpltCallback(frame);
-            break;
-        default:
-            break;
+    // CAN1: chassis DJI motors. Pure ID dispatch (no default fan-out).
+    switch (frame->id) {
+    case motor_ids::kWheel1:
+        actuator::instances::dji_201.CanRxCpltCallback(frame);
+        break;
+    case motor_ids::kWheel2:
+        actuator::instances::dji_202.CanRxCpltCallback(frame);
+        break;
+    case motor_ids::kWheel3:
+        actuator::instances::dji_203.CanRxCpltCallback(frame);
+        break;
+    case motor_ids::kWheel4:
+        actuator::instances::dji_204.CanRxCpltCallback(frame);
+        break;
+    default:
+        break;
     }
 }
 
-static void can3_supercap_callback(const BspCanFrame *frame)
+static void can2_rx_callback(const BspCanFrame* frame)
 {
-    // supercap uses 0x100 by default
-    if (frame->id == 0x100) {
-        Supercap_Instance().CanRxCpltCallback(frame);
+    if (!frame) {
+        return;
+    }
+    if (frame->id_type != BSP_CAN_ID_STD || frame->frame_type != BSP_CAN_FRAME_DATA || frame->len < 8u) {
+        return;
+    }
+
+    // CAN2: external MCU frames only.
+    switch (frame->id) {
+    case AUTOAIM_INFO_ID:
+        McuComm::Instance().CanAutoAimInfoRxCpltCallback(frame);
+        break;
+    case REMOTE_CONTROL_ID:
+        McuComm::Instance().CanRemoteControlRxCpltCallback(frame);
+        break;
+    case IMU_INFO_ID:
+        McuComm::Instance().CanImuInfoRxCpltCallback(frame);
+        break;
+    default:
+        break;
+    }
+}
+
+static void can3_rx_callback(const BspCanFrame* frame)
+{
+    if (!frame) {
+        return;
+    }
+    if (frame->id_type != BSP_CAN_ID_STD || frame->frame_type != BSP_CAN_FRAME_DATA || frame->len < 8u) {
+        return;
+    }
+
+    // CAN3: supercap + gimbal DM motors. Pure ID dispatch.
+    switch (frame->id) {
+    case motor_ids::kSupercap:
+        Supercap::Instance().CanRxCpltCallback(frame);
+        break;
+    case motor_ids::kGimbalPitch:
+        actuator::instances::dm_02.CanRxCpltCallback(frame);
+        break;
+    case motor_ids::kGimbalYaw:
+        actuator::instances::dm_01.CanRxCpltCallback(frame);
+        break;
+    default:
+        break;
     }
 }
 
@@ -107,12 +147,9 @@ void App_WirePlatformIo(void)
         auto* can2 = bsp_can_get(BSP_CAN_BUS2);
         auto* can3 = bsp_can_get(BSP_CAN_BUS3);
 
-        (void)bsp_can_add_rx_callback(can1, can1_motor_callback);
-
-        (void)bsp_can_add_rx_callback(can2, can2_mcu_callback);
-        (void)bsp_can_add_rx_callback(can2, can2_motor_callback);
-
-        (void)bsp_can_add_rx_callback(can3, can3_supercap_callback);
-        (void)bsp_can_add_rx_callback(can3, can3_motor_callback);
+        // One callback per CAN bus, do ID dispatch inside.
+        (void)bsp_can_add_rx_callback(can1, can1_rx_callback);
+        (void)bsp_can_add_rx_callback(can2, can2_rx_callback);
+        (void)bsp_can_add_rx_callback(can3, can3_rx_callback);
     }
 }

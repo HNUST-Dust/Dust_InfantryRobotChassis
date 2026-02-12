@@ -4,7 +4,7 @@
  *
  * **定位**
  * - 这是业务/应用层（Interaction/App），不直接接触 CAN bus/std_id。
- * - 实际电机驱动与 CAN 报文由 Device/MotorActuatorTask 完成。
+ * - 电机驱动与 CAN 报文由本模块内的电机实例完成（CAN TX 仍通过 Topic：`orb::can_tx`）。
  *
  * **数据流（以当前实现为准）**
  * - 输入：
@@ -30,6 +30,11 @@
 class Chassis
 {
 public:
+    static Chassis& Instance();
+
+    static void StartGlobal() { Instance().Start(); }
+    static void ExitGlobal() { Instance().Exit(); }
+
     void Start();
     void Task();
     void Exit();
@@ -95,7 +100,5 @@ inline void Chassis::SetYawAngle(float yaw_angle)
     yaw_angle_ = yaw_angle;
 }
 
-// Module singleton accessor (no Context/service-locator layer)
-Chassis& Chassis_Instance();
 
 #endif // !APP_CHASSIS_H_

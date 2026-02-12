@@ -35,7 +35,7 @@ void referee_daemon_fault(DaemonClient&) {}
 DaemonClient* s_referee_daemon = nullptr;
 } // namespace
 
-Referee& Referee_Instance()
+Referee& Referee::Instance()
 {
     static Referee inst;
     return inst;

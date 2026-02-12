@@ -40,7 +40,7 @@ void mcu_comm_daemon_fault(DaemonClient&) {}
 DaemonClient* s_mcu_comm_daemon = nullptr;
 } // namespace
 
-McuComm& McuComm_Instance()
+McuComm& McuComm::Instance()
 {
     static McuComm inst;
     return inst;

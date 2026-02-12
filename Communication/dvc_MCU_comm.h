@@ -80,6 +80,9 @@ class McuComm
 {
 public:
 
+    // Singleton accessor (explicit call-site; no global free-function)
+    static McuComm& Instance();
+
     volatile McuCommData mcu_comm_data_ = {
             127,
             127,
@@ -183,8 +186,5 @@ protected:
     // FreeRTOS 入口，静态函数
     static void TaskEntry(void *param);
 };
-
-// Module singleton accessor (no Context/service-locator layer)
-McuComm& McuComm_Instance();
 
 #endif //MODULES_COMM_DVC_MCU_COMM_H

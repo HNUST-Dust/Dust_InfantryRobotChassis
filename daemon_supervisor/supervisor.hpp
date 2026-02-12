@@ -39,6 +39,8 @@
 #pragma once
 #include "daemon_client.hpp"
 
+#include "cmsis_os2.h"
+
 
 class DaemonSupervisor {
 
@@ -103,6 +105,48 @@ public:
      * @param hook 故障处理函数指针，设为 nullptr 可禁用
      */
     static void set_system_fault_hook(SystemFaultHook hook);
+
+    /**
+     * @brief daemon_task 线程启动参数
+     *
+     * 默认值与工程内其它模块 Start() 的优先级风格保持一致。
+     */
+    struct ThreadConfig {
+        const char* name;
+        osPriority_t priority;
+
+        constexpr ThreadConfig(
+            const char* n = "daemon",
+            osPriority_t p = (osPriority_t)osPriorityAboveNormal)
+            : name(n)
+            , priority(p)
+        {
+        }
+    };
+
+    /**
+     * @brief 初始化 DaemonSupervisor 并启动 daemon_task（静态内存）
+     *
+     * 约束：必须在任何模块注册 DaemonClient 前调用。
+     * 提示：系统级故障钩子请先通过 set_system_fault_hook() 绑定。
+     * @return 创建/已存在的线程句柄；失败返回 nullptr
+     */
+    static osThreadId_t Start();
+
+    /**
+     * @brief 同 Start()，可自定义线程属性。
+     */
+    static osThreadId_t Start(ThreadConfig cfg);
+
+    /**
+     * @brief 兼容接口：绑定 hook 后启动（等价于 set_system_fault_hook(hook); Start();）
+     */
+    static osThreadId_t Start(SystemFaultHook hook);
+
+    /**
+     * @brief 兼容接口：绑定 hook 后启动并自定义线程属性。
+     */
+    static osThreadId_t Start(SystemFaultHook hook, ThreadConfig cfg);
 
     /**
      * @brief 硬件看门狗喂狗函数类型

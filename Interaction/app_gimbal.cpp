@@ -3,9 +3,8 @@
  * @brief Gimbal 实现：订阅 IMU/遥控/自瞄输入，完成融合与控制，并发布云台目标 Topic。
  *
  * 说明：
- * - 业务层只发布目标（`orb::gimbal_dm_target` / `orb::gimbal_dm_admin_cmd`），不直接发送 CAN。
- * - 电机反馈与 CAN 报文由 Device/MotorActuatorTask 处理。
- * - 守护（daemon_supervisor）仅在“收到新外部数据”时 feed，避免任务空转误判在线。
+ * - 业务层只发布电机级目标（`orb::dm_mit_target_cmd` / `orb::dm_mit_admin_cmd`），不直接发送 CAN。
+ * - 电机反馈与 CAN 报文由 Device/actuator 运行时模块处理（CAN TX 仍通过 Topic：`orb::can_tx`）。
  */
 #include "app_gimbal.h"
 #include "cmsis_os2.h"
@@ -19,32 +18,28 @@ static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
 
 [[maybe_unused]] static constexpr TickType_t kFreeRtosTick0 = static_cast<TickType_t>(0);
 
-#include "../communication_topic/app_motor_topics.hpp"
+#include "../communication_topic/actuator_cmd_topics.hpp"
 
 #include "../communication_topic/gimbal_state_topics.hpp"
 #include "../communication_topic/mcu_topics.hpp"
 
-#include "bsp_dwt.h"
-#include "../daemon_supervisor/supervisor.hpp"
+#include "../Device/motor_ids.hpp"
+
+#include <cstring>
 
 namespace {
 inline uint32_t now_ms()
 {
-    return static_cast<uint32_t>(dwt_get_timeline_ms());
-}
-
-void gimbal_daemon_fault(DaemonClient& c)
-{
-    auto* self = static_cast<Gimbal*>(c.owner());
-    if (self) {
-        self->Exit();
+    const uint32_t freq = osKernelGetTickFreq();
+    if (freq == 0u) {
+        return 0u;
     }
+    return static_cast<uint32_t>(osKernelGetTickCount() * 1000u / freq);
 }
 
-DaemonClient* s_gimbal_daemon = nullptr;
 } // namespace
 
-Gimbal& Gimbal_Instance()
+Gimbal& Gimbal::Instance()
 {
     static Gimbal inst;
     return inst;
@@ -55,20 +50,6 @@ void Gimbal::Start()
     if (started_) {
         configASSERT(false);
         return;
-    }
-
-    // Register daemon client (FATAL + CRITICAL)
-    {
-        static DaemonClient s_daemon(
-            200,
-            gimbal_daemon_fault,
-            this,
-            DaemonClient::Domain::CONTROL,
-            DaemonClient::FaultLevel::FATAL,
-            DaemonClient::Priority::CRITICAL);
-        s_gimbal_daemon = &s_daemon;
-        (void)DaemonSupervisor::register_client(s_gimbal_daemon);
-        s_gimbal_daemon->feed(now_ms());
     }
 
     started_ = true;
@@ -207,11 +188,11 @@ void Gimbal::Start()
     yaw_omega_filter_.configure(15.0f, 0.001f);
     pitch_omega_filter_.configure(15.0f, 0.001f);
 
-    // 不再在这里 Init/Enter/Output 电机；交给 MotorActuatorTask
+    // 电机绑定/bring-up 在 BindMotors() 完成；输出在 dm_act 任务中完成
 
     static const osThreadAttr_t kGimbalTaskAttr = {
         .name = "gimbal_task",
-        .stack_size = 512,//剩余260字节
+        .stack_size = 512,
         .priority = (osPriority_t) osPriorityNormal
     };
     thread_ = osThreadNew(Gimbal::TaskEntry, this, &kGimbalTaskAttr);
@@ -222,30 +203,24 @@ void Gimbal::Start()
 
 void Gimbal::Exit()
 {
-    // 方案B：让执行器层退出（急停）
-    // orb::GimbalDmAdminCmd admin{};
-    // admin.op = orb::GimbalDmAdminOp::BothExit;
-    // orb::gimbal_dm_admin_cmd.publish(admin);
-
-    // 同时将目标清零（由MotorActuatorTask输出到电机）
-    // orb::GimbalDmTarget t{};
-    // t.yaw_angle = 0.0f;
-    // t.yaw_omega = 0.0f;
-    // t.yaw_torque = 0.0f;
-    // t.pitch_angle = 0.0f;
-    // t.pitch_omega = 0.0f;
-    // t.pitch_torque = 0.0f;
-    // orb::gimbal_dm_target.publish(t);
-
-    // 新方案：业务层只发布云台目标（不接触 CAN 信息）
-    orb::GimbalDmTarget t{};
-    t.yaw_angle = 0.0f;
-    t.yaw_omega = 0.0f;
-    t.yaw_torque = 0.0f;
-    t.pitch_angle = 0.0f;
-    t.pitch_omega = 0.0f;
-    t.pitch_torque = 0.0f;
-    orb::gimbal_dm_target.publish(t);
+    {
+        orb::DmMitTargetCmd t{};
+        t.bus = orb::CanBus::CAN3;
+        t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+        t.angle = 0.0f;
+        t.omega = 0.0f;
+        t.torque = 0.0f;
+        orb::dm_mit_target_cmd.publish(t);
+    }
+    {
+        orb::DmMitTargetCmd t{};
+        t.bus = orb::CanBus::CAN3;
+        t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+        t.angle = 0.0f;
+        t.omega = 0.0f;
+        t.torque = 0.0f;
+        orb::dm_mit_target_cmd.publish(t);
+    }
 }
 
 /**
@@ -261,7 +236,7 @@ void Gimbal::SelfResolution()
     now_yaw_omega_ = imu_yaw_omega_;
     now_pitch_omega_ = imu_pitch_omega_;
 
-    // 执行器层（MotorActuatorTask）会维护实际 torque 反馈；这里先置 0
+    // 扭矩反馈当前未接入（这里先置 0）
     now_yaw_torque_ = 0.0f;
     now_pitch_torque_ = 0.0f;
 
@@ -303,21 +278,37 @@ void Gimbal::SelfResolution()
 
 void Gimbal::SetYawZero()
 {
-    orb::GimbalDmAdminCmd cmd{};
-    cmd.op = orb::GimbalDmAdminOp::YawSaveZero;
-    orb::gimbal_dm_admin_cmd.publish(cmd);
+    orb::DmMitAdminCmd cmd{};
+    cmd.bus = orb::CanBus::CAN3;
+    cmd.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+    cmd.op = orb::DmMitAdminOp::SaveZero;
+    orb::dm_mit_admin_cmd.publish(cmd);
 }
 
 void Gimbal::Output()
 {
-    orb::GimbalDmTarget t{};
-    t.yaw_angle = GetTargetYawAngle();
-    t.yaw_omega = GetTargetYawOmega();
-    t.yaw_torque = 0.0f;
-    t.pitch_angle = GetTargetPitchAngle();
-    t.pitch_omega = GetTargetPitchOmega();
-    t.pitch_torque = 0.0f;
-    orb::gimbal_dm_target.publish(t);
+    {
+        orb::DmMitTargetCmd t{};
+        t.bus = orb::CanBus::CAN3;
+        t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+        t.angle = GetTargetYawAngle();
+        t.omega = GetTargetYawOmega();
+        t.torque = 0.0f;
+        t.kp = 0.0f;
+        t.kd = 0.0f;
+        orb::dm_mit_target_cmd.publish(t);
+    }
+    {
+        orb::DmMitTargetCmd t{};
+        t.bus = orb::CanBus::CAN3;
+        t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+        t.angle = GetTargetPitchAngle();
+        t.omega = GetTargetPitchOmega();
+        t.torque = 0.0f;
+        t.kp = 0.0f;
+        t.kd = 0.0f;
+        orb::dm_mit_target_cmd.publish(t);
+    }
 }
 
 /**
@@ -364,12 +355,9 @@ void Gimbal::Task()
     {
         const uint32_t t0 = now_ms();
         while ((now_ms() - t0) < 3000u) {
-            const bool got_mcu = mcu_control_sub.copy(mcu);
-            const bool got_autoaim = mcu_autoaim_sub.copy(autoaim);
-            const bool got_imu = mcu_imu_sub.copy(imu);
-            if ((got_mcu || got_autoaim || got_imu) && s_gimbal_daemon) {
-                s_gimbal_daemon->feed(now_ms());
-            }
+            (void)mcu_control_sub.copy(mcu);
+            (void)mcu_autoaim_sub.copy(autoaim);
+            (void)mcu_imu_sub.copy(imu);
             osDelay(1);
         }
     }
@@ -383,12 +371,9 @@ void Gimbal::Task()
 
     for (;;)
     {
-        const bool got_mcu = mcu_control_sub.copy(mcu);
-        const bool got_autoaim = mcu_autoaim_sub.copy(autoaim);
-        const bool got_imu = mcu_imu_sub.copy(imu);
-        if ((got_mcu || got_autoaim || got_imu) && s_gimbal_daemon) {
-            s_gimbal_daemon->feed(now_ms());
-        }
+        (void)mcu_control_sub.copy(mcu);
+        (void)mcu_autoaim_sub.copy(autoaim);
+        (void)mcu_imu_sub.copy(imu);
 
         // IMU 输入
         SetYawImuAngle(imu.yaw_total_angle_f);
@@ -449,11 +434,23 @@ void Gimbal::Task()
         if (mcu.reset_zero == 1) {
             SetYawZero();
 
-            orb::GimbalDmAdminCmd admin{};
-            admin.op = orb::GimbalDmAdminOp::BothClearError;
-            orb::gimbal_dm_admin_cmd.publish(admin);
-            admin.op = orb::GimbalDmAdminOp::BothEnter;
-            orb::gimbal_dm_admin_cmd.publish(admin);
+            // best-effort: 对两台 DM 电机分别下发 ClearError/Enter
+            {
+                orb::DmMitAdminCmd c{};
+                c.bus = orb::CanBus::CAN3;
+
+                c.op = orb::DmMitAdminOp::ClearError;
+                c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+                orb::dm_mit_admin_cmd.publish(c);
+                c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+                orb::dm_mit_admin_cmd.publish(c);
+
+                c.op = orb::DmMitAdminOp::Enter;
+                c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+                orb::dm_mit_admin_cmd.publish(c);
+                c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+                orb::dm_mit_admin_cmd.publish(c);
+            }
         }
 
         if(first_run_flag == 0){ // 第一次运行到这里，pre_pitch_angle未初始化
@@ -479,3 +476,4 @@ void Gimbal::Task()
         pre_pitch_angle_ = target_pitch_angle_;
     }
 }
+

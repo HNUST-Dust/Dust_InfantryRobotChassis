@@ -4,7 +4,7 @@
  *
  * **定位**
  * - 应用层负责控制策略（PID/滤波/插补/模式切换），不直接接触 CAN bus/std_id。
- * - 执行器层（Device/MotorActuatorTask）负责具体 DM/DJI 驱动、CAN RX 解包与 CAN TX 输出。
+ * - 电机驱动与 CAN 报文由本模块内的电机实例完成（CAN TX 仍通过 Topic：`orb::can_tx`）。
  *
  * **数据流（以当前实现为准）**
  * - 输入：
@@ -54,6 +54,10 @@ enum GimbalControlType
 class Gimbal
 {
 public:
+    static Gimbal& Instance();
+
+    static void StartGlobal() { Instance().Start(); }
+    static void ExitGlobal() { Instance().Exit(); }
 
     void Start();
     void Task();
@@ -404,7 +408,7 @@ inline void Gimbal::SetTargetPitchOmega(float target_pitch_omega)
 
 
 // Module singleton accessor (no Context/service-locator layer)
-Gimbal& Gimbal_Instance();
+
 
 
 #endif // !GIMBAL_H

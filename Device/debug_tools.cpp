@@ -24,7 +24,7 @@ void vofa_daemon_fault(DaemonClient&) {}
 DaemonClient* s_vofa_daemon = nullptr;
 } // namespace
 
-DebugTools& DebugTools_Instance()
+DebugTools& DebugTools::Instance()
 {
     static DebugTools inst;
     return inst;

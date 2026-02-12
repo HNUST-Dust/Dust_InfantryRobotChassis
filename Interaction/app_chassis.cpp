@@ -3,8 +3,8 @@
  * @brief Chassis 实现：订阅输入 Topic，做坐标变换与运动学逆解，发布轮速目标 Topic。
  *
  * 说明：
- * - 本模块不直接控制电机/不直接发送 CAN；只发布 `orb::chassis_wheel_omega_cmd`。
- * - 执行器输出由 Device/MotorActuatorTask 订阅并落到 `orb::can_tx`。
+ * - 本模块不直接控制电机/不直接发送 CAN；只发布 motor-level 的 `orb::dji_c6xx_omega_cmd`。
+ * - 电机驱动与 CAN 输出由 Device/actuator 运行时模块负责（CAN TX 仍通过 Topic：`orb::can_tx`）。
  */
 
 // app
@@ -14,9 +14,6 @@
 #include "arm_math.h"
 
 #include "math/alg_math.h"
-
-#include "bsp_dwt.h"
-#include "../daemon_supervisor/supervisor.hpp"
 
 extern "C" {
 #include "FreeRTOS.h"
@@ -28,28 +25,13 @@ static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
 // 满足 clang-tidy: "Included header FreeRTOS.h is not used directly"
 static constexpr uint32_t kFreeRtosTickPeriodMs = portTICK_PERIOD_MS;
 
-#include "../communication_topic/app_motor_topics.hpp"
+#include "../communication_topic/actuator_cmd_topics.hpp"
 #include "../communication_topic/gimbal_state_topics.hpp"
 #include "../communication_topic/mcu_topics.hpp"
 
-namespace {
-inline uint32_t now_ms()
-{
-    return static_cast<uint32_t>(dwt_get_timeline_ms());
-}
+#include "../Device/motor_ids.hpp"
 
-void chassis_daemon_fault(DaemonClient& c)
-{
-    auto* self = static_cast<Chassis*>(c.owner());
-    if (self) {
-        self->Exit();
-    }
-}
-
-DaemonClient* s_chassis_daemon = nullptr;
-}  // namespace
-
-Chassis& Chassis_Instance()
+Chassis& Chassis::Instance()
 {
     static Chassis inst;
     return inst;
@@ -60,20 +42,6 @@ void Chassis::Start()
     if (started_) {
         configASSERT(false);
         return;
-    }
-
-    // Register daemon client (FATAL + CRITICAL: chassis loop stop is dangerous)
-    {
-        static DaemonClient s_daemon(
-            200,
-            chassis_daemon_fault,
-            this,
-            DaemonClient::Domain::CONTROL,
-            DaemonClient::FaultLevel::FATAL,
-            DaemonClient::Priority::CRITICAL);
-        s_chassis_daemon = &s_daemon;
-        (void)DaemonSupervisor::register_client(s_chassis_daemon);
-        s_chassis_daemon->feed(now_ms());
     }
 
     started_ = true;
@@ -96,12 +64,20 @@ void Chassis::TaskEntry(void *argument)
 
 void Chassis::Exit()
 {
-    // 退出时把 4 个轮速清零
+    // 退出时把 4 个轮速清零（按电机 ID 发布）
+    static constexpr uint16_t kIds[4] = {
+        static_cast<uint16_t>(motor_ids::kWheel1),
+        static_cast<uint16_t>(motor_ids::kWheel2),
+        static_cast<uint16_t>(motor_ids::kWheel3),
+        static_cast<uint16_t>(motor_ids::kWheel4),
+    };
+
     for (uint8_t i = 0; i < 4; ++i) {
-        orb::ChassisWheelOmegaCmd c{};
-        c.wheel = i;
+        orb::DjiC6xxOmegaCmd c{};
+        c.bus = orb::CanBus::CAN1;
+        c.rx_std_id = kIds[i];
         c.omega = 0.0f;
-        orb::chassis_wheel_omega_cmd.publish(c);
+        orb::dji_c6xx_omega_cmd.publish(c);
     }
 }
 
@@ -115,19 +91,22 @@ void Chassis::KinematicsInverseResolution()
     w[2] = ( 0.707107f * target_vx_in_chassis_ - 0.707107f * target_vy_in_chassis_) + (target_velocity_rotation_);
     w[3] = ( 0.707107f * target_vx_in_chassis_ + 0.707107f * target_vy_in_chassis_) + (target_velocity_rotation_);
 
+    static constexpr uint16_t kIds[4] = {
+        static_cast<uint16_t>(motor_ids::kWheel1),
+        static_cast<uint16_t>(motor_ids::kWheel2),
+        static_cast<uint16_t>(motor_ids::kWheel3),
+        static_cast<uint16_t>(motor_ids::kWheel4),
+    };
+
     for (uint8_t i = 0; i < 4; ++i) {
-        orb::ChassisWheelOmegaCmd c{};
-        c.wheel = i;
+        orb::DjiC6xxOmegaCmd c{};
+        c.bus = orb::CanBus::CAN1;
+        c.rx_std_id = kIds[i];
         c.omega = w[i];
-        orb::chassis_wheel_omega_cmd.publish(c);
+        orb::dji_c6xx_omega_cmd.publish(c);
     }
 }
 
-void Chassis::OutputToMotor()
-{
-    // 已迁移：底盘在 CalculateMotorControlValue() 中发布 app-level 话题
-    // （orb::chassis_wheel_omega_cmd），不再在这里直接输出到底层。
-}
 void Chassis::RotationMatrixTransform()
 {
     // 将云台坐标系 (vx, vy) 旋转到车体坐标系
@@ -156,11 +135,8 @@ void Chassis::Task()
 
     for (;;)
     {
-        const bool got_mcu = mcu_control_sub.copy(mcu);
-        const bool got_gimbal_state = gimbal_state_sub.copy(gimbal_state);
-        if ((got_mcu || got_gimbal_state) && s_chassis_daemon) {
-            s_chassis_daemon->feed(now_ms());
-        }
+        (void)mcu_control_sub.copy(mcu);
+        (void)gimbal_state_sub.copy(gimbal_state);
 
         const float vx_in_gimbal = (mcu.chassis_speed_x - 127.0f) * kChassisSpeed / 128.0f;
         const float vy_in_gimbal = (127.0f - mcu.chassis_speed_y) * kChassisSpeed / 128.0f;
@@ -201,10 +177,9 @@ void Chassis::Task()
         RotationMatrixTransform();
         // 运动学逆解算
         KinematicsInverseResolution();
-        // 输出到底盘电机
-        OutputToMotor();
 
         osDelay(1);// 1khz电机控制频率
     }
 }
+
 

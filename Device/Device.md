@@ -19,8 +19,9 @@
   - IMU/INS 数据更新与姿态解算相关 glue。
   - 依赖 `Algorithm/estimation/QuaternionEKF`。
   - 使用 DWT 获取 dt，周期性读取 BMI088。
-- `motor_actuator_task.*`
-  - 电机执行器任务与 CAN 接收分发入口。
+- 电机驱动（DJI/DM）
+  - 电机实例在对应业务模块中创建与绑定（如 `Interaction/app_chassis.*`、`Interaction/app_gimbal.*`）。
+  - CAN TX 仍通过 `orb::can_tx` 由 TxTask 统一发送。
 - `controller.*`
   - 控制器相关的整合层（与算法/设备数据交互）。
 - `debug_tools.*`

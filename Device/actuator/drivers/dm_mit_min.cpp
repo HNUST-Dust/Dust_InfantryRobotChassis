@@ -1,46 +1,157 @@
 #include "dm_mit_min.hpp"
 
+#include "cmsis_os2.h"
+
+#include "utils/alg_constrain.h"
+#include "utils/alg_quantize.hpp"
+
+extern "C" {
+#include "FreeRTOS.h" // NOLINT(misc-include-cleaner)
+#include "task.h"
+}
+
+static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
+
+#include "../../../communication_topic/actuator_cmd_topics.hpp"
+
+#include "../../../Drivers/bsp_dwt.h"
+
+
 #include <cmath>
 #include <cstring>
 
 namespace actuator::drivers {
 
 namespace {
-inline float clampf(float v, float lo, float hi) {
-    return (v < lo) ? lo : (v > hi) ? hi : v;
-}
-inline uint32_t float_to_uint(float x, float x_min, float x_max, uint8_t bits) {
-    const float span = x_max - x_min;
-    const float offset = x - x_min;
-    const uint32_t max_int = (1u << bits) - 1u;
-    const float scaled = (offset * max_int) / span;
-    if (scaled <= 0.0f) return 0;
-    if (scaled >= static_cast<float>(max_int)) return max_int;
-    return static_cast<uint32_t>(scaled);
-}
-inline float uint_to_float(uint32_t x_int, float x_min, float x_max, uint8_t bits) {
-    const float span = x_max - x_min;
-    const uint32_t max_int = (1u << bits) - 1u;
-    return (static_cast<float>(x_int) * span) / static_cast<float>(max_int) + x_min;
+using alg::float_constrain;
+using alg::float_to_uint;
+using alg::uint_to_float;
+
+static constexpr size_t kBusCount = 3;
+static constexpr size_t kMaxMotors = 8;
+
+static DmMitMin* s_motors[kMaxMotors] = {};
+
+static StaticTask_t s_task_tcb;
+static StackType_t s_task_stack[512];
+static osThreadId_t s_task_thread = nullptr;
+
+static void dm_mit_task(void*) {
+    RingSub<orb::DmMitTargetCmd, 16> target_sub{orb::dm_mit_target_cmd};
+    RingSub<orb::DmMitAdminCmd, 8> admin_sub{orb::dm_mit_admin_cmd};
+
+    for (;;) {
+        
+        orb::DmMitTargetCmd t{};
+        while (target_sub.copy(t)) {
+            DmMitMin* m = nullptr;
+            for (auto* candidate : s_motors) {
+                if (!candidate) {
+                    continue;
+                }
+                if (candidate->bus() == t.bus && candidate->can_rx_id() == t.can_rx_id) {
+                    m = candidate;
+                    break;
+                }
+            }
+            if (!m) {
+                continue;
+            }
+            m->SetControl(t.angle, t.omega, t.torque);
+            m->PublishMitTx(t.kp, t.kd);
+        }
+        
+        orb::DmMitAdminCmd c{};
+        while (admin_sub.copy(c)) {
+            DmMitMin* m = nullptr;
+            for (auto* candidate : s_motors) {
+                if (!candidate) {
+                    continue;
+                }
+                if (candidate->bus() == c.bus && candidate->can_rx_id() == c.can_rx_id) {
+                    m = candidate;
+                    break;
+                }
+            }
+            if (!m) {
+                continue;
+            }
+            switch (c.op) {
+            case orb::DmMitAdminOp::Enter: m->Enter(); break;
+            case orb::DmMitAdminOp::Exit: m->Exit(); break;
+            case orb::DmMitAdminOp::ClearError: m->ClearError(); break;
+            case orb::DmMitAdminOp::SaveZero: m->SaveZero(); break;
+            default: break;
+            }
+        }
+
+        osDelay(1);
+    }
 }
 } // namespace
-
-uint16_t DmMitMin::MitTxStdId(uint8_t master_id) {
-    // minimal: use the same std_id composition as existing DM MIT normal.
-    // Legacy code uses base_can_id + 0x100 for MIT (approx). Here we keep it simple:
-    // std_id = (master_id << 4) | 0x00;  (user can override via cfg.base_std_id if needed)
-    return static_cast<uint16_t>(master_id) << 4;
-}
 
 void DmMitMin::Init(BspCanHandle can, const Config& cfg) {
     can_ = can;
     cfg_ = cfg;
     if (cfg_.base_std_id == 0) {
-        cfg_.base_std_id = MitTxStdId(cfg_.master_id);
+        cfg_.base_std_id = static_cast<uint16_t>(cfg_.master_id) << 4;
     }
+    joined_runtime_ = false;
 }
 
-void DmMitMin::OnRx(const uint8_t data[8]) {
+void DmMitMin::JoinRuntime()
+{
+    configASSERT(can_ != nullptr);
+    configASSERT(joined_runtime_ == false);
+    if (joined_runtime_) {
+        return;
+    }
+
+    // register into the small motor list (replace if same key exists)
+    bool stored = false;
+    for (auto& slot : s_motors) {
+        if (slot && slot->bus() == cfg_.bus && slot->can_rx_id() == cfg_.can_rx_id) {
+            slot = this;
+            stored = true;
+            break;
+        }
+    }
+    if (!stored) {
+        for (auto& slot : s_motors) {
+            if (!slot) {
+                slot = this;
+                stored = true;
+                break;
+            }
+        }
+    }
+    configASSERT(stored);
+
+    if (!s_task_thread) {
+        static const osThreadAttr_t attr = {
+            .name = "dm_mit",
+            .cb_mem = &s_task_tcb,
+            .cb_size = sizeof(s_task_tcb),
+            .stack_mem = s_task_stack,
+            .stack_size = sizeof(s_task_stack),
+            .priority = (osPriority_t)osPriorityAboveNormal,
+        };
+        s_task_thread = osThreadNew(dm_mit_task, nullptr, &attr);
+        configASSERT(s_task_thread != nullptr);
+    }
+    joined_runtime_ = true;
+}
+
+void DmMitMin::CanRxCpltCallback(const BspCanFrame* frame) {
+    if (!frame) {
+        return;
+    }
+    if (frame->id_type != BSP_CAN_ID_STD || frame->frame_type != BSP_CAN_FRAME_DATA || frame->len < 8u) {
+        return;
+    }
+
+    const uint8_t* data = frame->data;
+
     // DM normal rx payload: [id(4)|status(4)], angle(16), omega(12), torque(12), mosT, rotT
     const uint8_t id4 = (data[0] & 0x0F);
     if (id4 != (cfg_.can_rx_id & 0x0F)) {
@@ -57,9 +168,9 @@ void DmMitMin::OnRx(const uint8_t data[8]) {
 }
 
 void DmMitMin::SetControl(float angle, float omega, float torque) {
-    ctrl_angle_ = clampf(angle, -cfg_.angle_max, cfg_.angle_max);
-    ctrl_omega_ = clampf(omega, -cfg_.omega_max, cfg_.omega_max);
-    ctrl_torque_ = clampf(torque, -cfg_.torque_max, cfg_.torque_max);
+    ctrl_angle_ = float_constrain(angle, -cfg_.angle_max, cfg_.angle_max);
+    ctrl_omega_ = float_constrain(omega, -cfg_.omega_max, cfg_.omega_max);
+    ctrl_torque_ = float_constrain(torque, -cfg_.torque_max, cfg_.torque_max);
 }
 
 void DmMitMin::PackMit(float p, float v, float kp, float kd, float t, uint8_t out[8],
@@ -111,21 +222,48 @@ void DmMitMin::PublishMitTx(float kp, float kd) {
     PublishFrame(std_id, data, 8);
 }
 
-void DmMitMin::Enter() {
-    const uint8_t data[8] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFC};
-    PublishFrame(static_cast<uint16_t>(cfg_.base_std_id) | (cfg_.can_rx_id & 0x0F), data, 8);
-}
-void DmMitMin::Exit() {
-    const uint8_t data[8] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFD};
-    PublishFrame(static_cast<uint16_t>(cfg_.base_std_id) | (cfg_.can_rx_id & 0x0F), data, 8);
-}
-void DmMitMin::ClearError() {
-    const uint8_t data[8] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFB};
-    PublishFrame(static_cast<uint16_t>(cfg_.base_std_id) | (cfg_.can_rx_id & 0x0F), data, 8);
-}
-void DmMitMin::SaveZero() {
-    const uint8_t data[8] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFE};
+void DmMitMin::PublishAdminTail(uint8_t tail)
+{
+    uint8_t data[8];
+    for (int i = 0; i < 7; ++i) {
+        data[i] = 0xFF;
+    }
+    data[7] = tail;
     PublishFrame(static_cast<uint16_t>(cfg_.base_std_id) | (cfg_.can_rx_id & 0x0F), data, 8);
 }
 
+void DmMitMin::Enter() {
+    PublishAdminTail(0xFC);
+}
+void DmMitMin::Exit() {
+    PublishAdminTail(0xFD);
+}
+void DmMitMin::ClearError() {
+    PublishAdminTail(0xFB);
+}
+void DmMitMin::SaveZero() {
+    PublishAdminTail(0xFE);
+}
+
+void DmMitMin::BringUpDefault()
+{
+    static constexpr float kDelaySaveZeroS = 1.0f;
+    static constexpr float kDelayClearErrorS = 1.0f;
+    static constexpr float kDelayEnterS = 1.0f;
+
+    SaveZero();
+    dwt_delay(kDelaySaveZeroS);
+    ClearError();
+    dwt_delay(kDelayClearErrorS);
+    Enter();
+    dwt_delay(kDelayEnterS);
+}
+
 } // namespace actuator::drivers
+
+namespace actuator::instances {
+
+actuator::drivers::DmMitMin dm_01{};
+actuator::drivers::DmMitMin dm_02{};
+
+} // namespace actuator::instances

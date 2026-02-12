@@ -35,7 +35,7 @@
 - 当前实现包含：
   - `DaemonSupervisor::init()` + `set_system_fault_hook()`，并启动 daemon 任务（代码注释标记为 100Hz）。
   - 启动统一发送任务：`CanTxTask` / `UartTxTask`（系统唯一允许调用 `bsp_can_send/bsp_uart_send` 的位置）。
-  - 启动执行器层：`MotorActuatorTask`（绑定 CAN1/2/3 与 motor_cfg::Config）。
+  - 绑定电机实例：在 `Chassis/Gimbal` 模块内创建并绑定 CAN（每电机独立实例）。
   - 启动业务模块：底盘 `Chassis_Instance().Start()`、云台 `Gimbal_Instance().Start()`。
   - 初始化并启动外设模块：上位机/下板通信 `McuComm`（CAN2）、超级电容 `Supercap`（CAN3）、裁判系统 `Referee`（UART1）、调试工具 `DebugTools`（UART7）。
 

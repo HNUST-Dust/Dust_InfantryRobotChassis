@@ -103,6 +103,9 @@ struct SupercapSendData
 class Supercap
 {
 public:
+    // Singleton accessor (explicit call-site; no global free-function)
+    static Supercap& Instance();
+
     // 依赖注入（HAL-free）
     bool Bind(
         orb::CanBus bus,
@@ -194,9 +197,6 @@ protected:
     bool started_ = false;
 
 };
-
-// Module singleton accessor (no Context/service-locator layer)
-Supercap& Supercap_Instance();
 
 /**
  * @brief 获取超级电容在线状态
