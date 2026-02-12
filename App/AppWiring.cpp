@@ -38,23 +38,20 @@
 #include "motors/dji_c6xx.hpp"
 #include "motors/dm_mit.hpp"
 
-// Motor instances are defined in motor driver .cpp; AppWiring only does bus-level ID dispatch.
 
-// Standalone modules: accessed via Class::Instance() accessors
-
-// USART7 debug
+// USART7 VOFA debug
 static void uart7_debug_callback(uint8_t *buffer, uint16_t length)
 {
     DebugTools::Instance().VofaReceiveCallback(buffer, length);
 }
 
-// USART1 referee
+// USART1 裁判系统
 static void uart1_referee_callback(uint8_t *buffer, uint16_t length)
 {
     Referee::Instance().RxCpltCallback(buffer, length);
 }
 
-// CAN RX callbacks (one per bus): dispatch by ID inside.
+// 底盘电机
 static void can1_rx_callback(const BspCanFrame* frame)
 {
     if (!frame) {
@@ -83,6 +80,7 @@ static void can1_rx_callback(const BspCanFrame* frame)
     }
 }
 
+// 上下板通讯
 static void can2_rx_callback(const BspCanFrame* frame)
 {
     if (!frame) {
@@ -108,6 +106,9 @@ static void can2_rx_callback(const BspCanFrame* frame)
     }
 }
 
+// 超级电容
+// 云台yaw电机
+// 云台pitch电机
 static void can3_rx_callback(const BspCanFrame* frame)
 {
     if (!frame) {
@@ -117,7 +118,6 @@ static void can3_rx_callback(const BspCanFrame* frame)
         return;
     }
 
-    // CAN3: supercap + gimbal DM motors. Pure ID dispatch.
     switch (frame->id) {
     case motor_ids::kSupercap:
         Supercap::Instance().CanRxCpltCallback(frame);
@@ -141,15 +141,12 @@ void App_WirePlatformIo(void)
     bsp_uart_init(bsp_uart_get(BSP_UART7), uart7_debug_callback, kUartRxBufferSize);
     bsp_uart_init(bsp_uart_get(BSP_UART1), uart1_referee_callback, kUartRxBufferSize);
 
-    // CAN: register multiple RX subscribers (platform will fan-out)
-    {
-        auto* can1 = bsp_can_get(BSP_CAN_BUS1);
-        auto* can2 = bsp_can_get(BSP_CAN_BUS2);
-        auto* can3 = bsp_can_get(BSP_CAN_BUS3);
+    // CAN
+    auto* can1 = bsp_can_get(BSP_CAN_BUS1);
+    auto* can2 = bsp_can_get(BSP_CAN_BUS2);
+    auto* can3 = bsp_can_get(BSP_CAN_BUS3);
 
-        // One callback per CAN bus, do ID dispatch inside.
-        (void)bsp_can_add_rx_callback(can1, can1_rx_callback);
-        (void)bsp_can_add_rx_callback(can2, can2_rx_callback);
-        (void)bsp_can_add_rx_callback(can3, can3_rx_callback);
-    }
+    (void)bsp_can_add_rx_callback(can1, can1_rx_callback);
+    (void)bsp_can_add_rx_callback(can2, can2_rx_callback);
+    (void)bsp_can_add_rx_callback(can3, can3_rx_callback);
 }

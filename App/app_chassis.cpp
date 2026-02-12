@@ -46,7 +46,7 @@ void Chassis::Start()
 
     static const osThreadAttr_t kChassisTaskAttr = {
         .name = "chassis_task",
-        .stack_size = 512,//剩余260字节
+        .stack_size = 512,
         .priority = (osPriority_t) osPriorityNormal
     };
     thread_ = osThreadNew(Chassis::TaskEntry, this, &kChassisTaskAttr);

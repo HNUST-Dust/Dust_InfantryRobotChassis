@@ -15,7 +15,7 @@
 
 #include "cmsis_os2.h"
 extern "C" {
-#include "FreeRTOS.h" // NOLINT(misc-include-cleaner)
+#include "FreeRTOS.h" 
 #include "task.h"
 }
 #include <cstring>
@@ -187,8 +187,6 @@ void Gimbal::Start()
     yaw_omega_filter_.configure(15.0f, 0.001f);
     pitch_omega_filter_.configure(15.0f, 0.001f);
 
-    // 电机绑定/bring-up 在 BindMotors() 完成；输出在 dm_act 任务中完成
-
     static const osThreadAttr_t kGimbalTaskAttr = {
         .name = "gimbal_task",
         .stack_size = 512,
@@ -308,7 +306,7 @@ void Gimbal::Output()
  */
 void Gimbal::MotorNearestTransposition()
 {
-    // 方案B：业务层不直接访问电机。就近转位基于当前姿态（imu）/目标角，等价处理：将目标 yaw 归一化到与当前 yaw 最近。
+    // 就近转位基于当前姿态（imu）/目标角，等价处理：将目标 yaw 归一化到与当前 yaw 最近。
     float tmp_delta_angle = fmodf(target_yaw_angle_ - now_yaw_angle_, TWO_PI);
     if (tmp_delta_angle > PI) {
         tmp_delta_angle -= TWO_PI;
@@ -334,7 +332,6 @@ void Gimbal::Task()
     static constexpr float kChassisSpinSpeed = 30.0f;
     static constexpr float kYawFeedforwardRatio = 0.19f;
 
-    // Distributed: Gimbal subscribes to inputs directly (no Robot aggregator)
     Subscription<orb::McuControl> mcu_control_sub(orb::mcu_control);
     Subscription<orb::McuAutoAim> mcu_autoaim_sub(orb::mcu_autoaim);
     Subscription<orb::McuImu> mcu_imu_sub(orb::mcu_imu);
@@ -342,7 +339,7 @@ void Gimbal::Task()
     orb::McuAutoAim autoaim{};
     orb::McuImu imu{};
 
-    // 3s 等待陀螺仪收敛：仍然以“收到新外部数据”为准喂守护，避免启动阶段误判离线。
+    // 3s 等待陀螺仪收敛
     const uint32_t t0 = now_ms();
     while ((now_ms() - t0) < 3000u) {
         (void)mcu_control_sub.copy(mcu);
@@ -356,8 +353,6 @@ void Gimbal::Task()
         minipc_pitch_recive_filter_.configure(20.0f, 0.001f);
         minipc_filters_inited_ = true;
     }
-
-    uint8_t first_run_flag = 0; // 用于标记是否是第一次运行
 
     for (;;)
     {
@@ -424,7 +419,6 @@ void Gimbal::Task()
         if (mcu.reset_zero == 1) {
             SetYawZero();
 
-            // best-effort: 对两台 DM 电机分别下发 ClearError/Enter
             orb::DmMitAdminCmd c{};
             c.bus = orb::CanBus::CAN3;
 
