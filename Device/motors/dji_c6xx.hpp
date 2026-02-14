@@ -83,16 +83,9 @@ private:
     alg::Pid pid_omega_{};
 };
 
-// ===== RTOS task (driver-level wiring) =====
-// Runtime thread (driver-level wiring):
-//   orb::dji_c6xx_omega_cmd (按 rx_id 定位) -> PID Update -> group frame(tx_id) -> orb::can_tx
-
 } // namespace actuator::drivers
 
 namespace actuator::instances {
-
-// ===== Global DJI motor instances =====
-// 定义与实现见：Device/motors/dji_c6xx_min.cpp
 
 extern actuator::drivers::DjiC6xxMin dji_201;
 extern actuator::drivers::DjiC6xxMin dji_202;

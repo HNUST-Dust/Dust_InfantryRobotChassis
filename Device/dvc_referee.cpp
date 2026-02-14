@@ -16,7 +16,6 @@
 #include <cstdint>
 #include <cstring>
 #include "ui.h"
-// Topic pub-sub
 #include "../communication_topic/device_topics.hpp"
 
 #include "../communication_topic/uart_topics.hpp"

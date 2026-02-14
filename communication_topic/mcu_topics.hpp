@@ -4,7 +4,7 @@
 
 namespace orb {
 
-// chassis spin 模式（强类型，避免依赖 legacy dvc_MCU_comm.h）
+// chassis spin 模式（强类型，避免依赖具体通信模块头文件）
 enum class McuChassisSpinMode : uint8_t {
     Clockwise = 0,
     Disable = 1,

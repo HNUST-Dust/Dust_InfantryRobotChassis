@@ -28,7 +28,7 @@
 #include "../Drivers/can_tx_task.h"
 #include "../Drivers/uart_tx_task.h"
 #include "../communication_topic/actuator_cmd_topics.hpp"
-#include "../Communication/dvc_MCU_comm.h"
+#include "../Communication/mcu_comm.h"
 #include "../Device/supercap.h"
 #include "../Device/dvc_referee.h"
 #include "../Device/debug_tools.h"
@@ -44,8 +44,6 @@ static void daemon_system_fault(DaemonClient&)
     Chassis::Instance().Exit();
     Gimbal::Instance().Exit();
 
-    // Also request actuator-layer exit for DM motors (best-effort)
-    // Motor module is business-decoupled; address by bus + motor id.
     orb::DmMitAdminCmd c{};
     c.bus = orb::CanBus::CAN3;
     c.op = orb::DmMitAdminOp::Exit;

@@ -1,5 +1,5 @@
 /**
- * @file dvc_MCU_comm.h
+ * @file mcu_comm.h
  * @brief 外部 MCU 通信（CAN RX 解包 → Topic 发布；Topic 订阅 → CAN TX 发布）
  *
  * 设计思路：
@@ -18,8 +18,8 @@
  * - RX 回调：由平台 CAN 接收触发（可能在 IRQ 或专用接收线程）。
  * - TxTask：CMSIS-RTOS2 线程，等待 notifier 唤醒后批量发送。
  */
-#ifndef MODULES_COMM_DVC_MCU_COMM_H
-#define MODULES_COMM_DVC_MCU_COMM_H
+#ifndef MODULES_COMM_MCU_COMM_H
+#define MODULES_COMM_MCU_COMM_H
 
 #include <cstdint>
 #include <cstring>
@@ -173,4 +173,4 @@ protected:
     static void TaskEntry(void *param);
 };
 
-#endif //MODULES_COMM_DVC_MCU_COMM_H
+#endif // MODULES_COMM_MCU_COMM_H

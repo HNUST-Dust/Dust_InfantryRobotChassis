@@ -7,7 +7,7 @@
 #include "utils/alg_constrain.h"
 
 extern "C" {
-#include "FreeRTOS.h" // NOLINT(misc-include-cleaner)
+#include "FreeRTOS.h"
 #include "task.h"
 }
 

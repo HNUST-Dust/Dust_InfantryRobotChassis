@@ -1,5 +1,5 @@
 /**
- * @file dvc_MCU_comm.cpp
+ * @file mcu_comm.cpp
  * @brief McuComm 实现：CAN RX 解包、Topic 发布、TxTask 组帧并发布 can_tx
  *
  * 核心逻辑：
@@ -20,7 +20,7 @@
  * `McuComm` 作为上游，只负责把待发送的数据发布到 Topic。
  */
 
-#include "dvc_MCU_comm.h"
+#include "mcu_comm.h"
 #include <cstdint>
 #include <cstring>
 
@@ -86,7 +86,6 @@ void McuComm::Init(orb::CanBus bus, BspCanHandle can, uint8_t can_rx_id, uint8_t
     started_ = true;
 }
 
-// 任务入口（静态函数）—— osThreadNew 需要这个原型
 void McuComm::TaskEntry(void *argument) {
      McuComm *self = static_cast<McuComm *>(argument);  // 还原 this 指针
      self->Task();  // 调用成员函数

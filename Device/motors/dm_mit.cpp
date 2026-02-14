@@ -16,6 +16,7 @@ static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
 
 #include "actuator_cmd_topics.hpp"
 #include "mcu_topics.hpp"
+#include "actuator_state_topics.hpp"
 
 #include "bsp_dwt.h"
 
@@ -284,9 +285,45 @@ void DmMitMin::CanRxCpltCallback(const BspCanFrame* frame) {
     const uint16_t omega_u12 = (static_cast<uint16_t>(data[3]) << 4) | (data[4] >> 4);
     const uint16_t torque_u12 = (static_cast<uint16_t>(data[4] & 0x0F) << 8) | data[5];
 
-    now_angle_ = uint_to_float(angle_u16, -cfg_.angle_max, cfg_.angle_max, 16);
+    const uint8_t mos_temp = data[6];
+    const uint8_t rotor_temp = data[7];
+
+    const float raw_angle = uint_to_float(angle_u16, -cfg_.angle_max, cfg_.angle_max, 16);
+    now_angle_ = raw_angle;
     now_omega_ = uint_to_float(omega_u12, -cfg_.omega_max, cfg_.omega_max, 12);
     now_torque_ = uint_to_float(torque_u12, -cfg_.torque_max, cfg_.torque_max, 12);
+
+    // 角度展开得到累计角：基于环绕范围 [-angle_max, angle_max]。
+    // delta 采用最短跨越（当 raw_angle 翻转时修正）。
+    if (!raw_angle_inited_) {
+        raw_angle_inited_ = true;
+        last_raw_angle_ = raw_angle;
+        now_total_angle_ = raw_angle;
+    } else {
+        float delta = raw_angle - last_raw_angle_;
+        const float wrap = 2.0f * cfg_.angle_max;
+        if (delta > cfg_.angle_max) {
+            delta -= wrap;
+        } else if (delta < -cfg_.angle_max) {
+            delta += wrap;
+        }
+        now_total_angle_ += delta;
+        last_raw_angle_ = raw_angle;
+    }
+
+    // 发布电机反馈（每电机单独 Topic，避免多写者冲突）
+    orb::DmMitFeedback fb{};
+    fb.bus = cfg_.bus;
+    fb.can_rx_id = (cfg_.can_rx_id & 0x0F);
+    fb.angle_rad = now_angle_;
+    fb.total_angle_rad = now_total_angle_;
+    fb.omega_rad_s = now_omega_;
+    fb.torque_nm = now_torque_;
+    fb.mos_temp = mos_temp;
+    fb.rotor_temp = rotor_temp;
+
+    const int idx = orb::dm_mit_feedback_index(fb.bus, fb.can_rx_id);
+    orb::dm_mit_feedback[idx].publish(fb);
 }
 
 void DmMitMin::SetControl(float angle, float omega, float torque) {

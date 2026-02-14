@@ -113,6 +113,7 @@ public:
     float now_torque() const { return now_torque_; }
     // 统一命名（带单位后缀）
     float now_angle_rad() const { return now_angle_; }
+    float now_total_angle_rad() const { return now_total_angle_; }
     float now_omega_rad_s() const { return now_omega_; }
     float now_torque_nm() const { return now_torque_; }
 
@@ -133,8 +134,12 @@ private:
     bool joined_runtime_ = false;
 
     float now_angle_ = 0.0f;
+    float now_total_angle_ = 0.0f;
     float now_omega_ = 0.0f;
     float now_torque_ = 0.0f;
+
+    bool raw_angle_inited_ = false;
+    float last_raw_angle_ = 0.0f;
 
     float ctrl_angle_ = 0.0f;
     float ctrl_omega_ = 0.0f;
@@ -159,9 +164,6 @@ private:
 } // namespace actuator::drivers
 
 namespace actuator::instances {
-
-// ===== Global DM motor instances =====
-// 定义与实现见：Device/motors/dm_mit_min.cpp
 
 extern actuator::drivers::DmMitMin dm_01;
 extern actuator::drivers::DmMitMin dm_02;

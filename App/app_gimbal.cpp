@@ -3,12 +3,13 @@
  * @brief Gimbal 实现：订阅 IMU/遥控/自瞄输入，完成融合与控制，并发布云台目标 Topic。
  *
  * 说明：
- * - 业务层只发布电机级目标（`orb::dm_mit_target_cmd` / `orb::dm_mit_admin_cmd`），不直接发送 CAN。
+ * - 业务层只发布电机级目标（`orb::dm_mit_cascade_cmd` / `orb::dm_mit_admin_cmd`；Exit 时会发布一次 `orb::dm_mit_target_cmd` 置零扭矩），不直接发送 CAN。
  * - 电机反馈与 CAN 报文由 Device/actuator 运行时模块处理（CAN TX 仍通过 Topic：`orb::can_tx`）。
  */
 #include "app_gimbal.h"
 
 #include "../communication_topic/actuator_cmd_topics.hpp"
+#include "../communication_topic/actuator_state_topics.hpp"
 #include "../communication_topic/gimbal_state_topics.hpp"
 #include "../communication_topic/mcu_topics.hpp"
 #include "../Device/motor_ids.hpp"
@@ -75,9 +76,6 @@ void Gimbal::Init()
         actuator::drivers::DmMitMin::CascadeAxis::Pitch,
         actuator::drivers::DmMitMin::CascadeFeedback::Imu);
 #endif
-    // yaw轴速度环低通滤波器初始化
-    yaw_omega_filter_.configure(15.0f, 0.001f);
-    pitch_omega_filter_.configure(15.0f, 0.001f);
 
     static const osThreadAttr_t kGimbalTaskAttr = {
         .name = "gimbal_task",
@@ -93,17 +91,17 @@ void Gimbal::Init()
 void Gimbal::Exit()
 {
     // 禁用串级控制（由 dm_mit 运行时线程消费并停止周期输出）
-    {
-        orb::DmMitCascadeCmd c{};
-        c.bus = orb::CanBus::CAN3;
-        c.enable = false;
 
-        c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
-        orb::dm_mit_cascade_cmd.publish(c);
+    orb::DmMitCascadeCmd c{};
+    c.bus = orb::CanBus::CAN3;
+    c.enable = false;
 
-        c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
-        orb::dm_mit_cascade_cmd.publish(c);
-    }
+    c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+    orb::dm_mit_cascade_cmd.publish(c);
+
+    c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+    orb::dm_mit_cascade_cmd.publish(c);
+
 
     orb::DmMitTargetCmd t{};
     t.bus = orb::CanBus::CAN3;
@@ -119,24 +117,6 @@ void Gimbal::Exit()
     t.omega = 0.0f;
     t.torque = 0.0f;
     orb::dm_mit_target_cmd.publish(t);
-}
-
-/**
- * @brief 自身解算
- *
- */
-void Gimbal::SelfResolution()
-{
-    // 业务层不再直接读取电机反馈；这里的 now_* 只做状态镜像（来自 IMU）
-    now_yaw_angle_ = imu_yaw_angle_;
-    now_pitch_angle_ = imu_pitch_angle_;
-
-    now_yaw_omega_ = imu_yaw_omega_;
-    now_pitch_omega_ = imu_pitch_omega_;
-
-    // 扭矩反馈当前未接入（这里先置 0）
-    now_yaw_torque_ = 0.0f;
-    now_pitch_torque_ = 0.0f;
 }
 
 void Gimbal::SetYawZero()
@@ -172,24 +152,6 @@ void Gimbal::Output()
     orb::dm_mit_cascade_cmd.publish(c);
 }
 
-/**
- * @brief 电机就近转位
- *
- */
-void Gimbal::MotorNearestTransposition()
-{
-    // 就近转位基于当前姿态（imu）/目标角，等价处理：将目标 yaw 归一化到与当前 yaw 最近。
-    float tmp_delta_angle = fmodf(target_yaw_angle_ - now_yaw_angle_, TWO_PI);
-    if (tmp_delta_angle > PI) {
-        tmp_delta_angle -= TWO_PI;
-    } else if (tmp_delta_angle < -PI) {
-        tmp_delta_angle += TWO_PI;
-    }
-    target_yaw_angle_ = now_yaw_angle_ + tmp_delta_angle;
-
-    // pitch 保持在机械限位约束即可（由上层设定，或在 SetTargetPitchAngle 中限幅）
-}
-
 void Gimbal::TaskEntry(void *argument)
 {
     Gimbal *self = static_cast<Gimbal *>(argument);
@@ -207,6 +169,16 @@ void Gimbal::Task()
     Subscription<orb::McuControl> mcu_control_sub(orb::mcu_control);
     Subscription<orb::McuAutoAim> mcu_autoaim_sub(orb::mcu_autoaim);
     Subscription<orb::McuImu> mcu_imu_sub(orb::mcu_imu);
+
+    static constexpr uint8_t kYawCanRxId = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+    static constexpr uint8_t kPitchCanRxId = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+    Subscription<orb::DmMitFeedback> yaw_fb_sub(
+        orb::dm_mit_feedback[orb::dm_mit_feedback_index(orb::CanBus::CAN3, kYawCanRxId)]);
+    Subscription<orb::DmMitFeedback> pitch_fb_sub(
+        orb::dm_mit_feedback[orb::dm_mit_feedback_index(orb::CanBus::CAN3, kPitchCanRxId)]);
+
+    orb::DmMitFeedback yaw_fb{};
+    orb::DmMitFeedback pitch_fb{};
     orb::McuControl mcu{};
     orb::McuAutoAim autoaim{};
     orb::McuImu imu{};
@@ -231,6 +203,18 @@ void Gimbal::Task()
         (void)mcu_control_sub.copy(mcu);
         (void)mcu_autoaim_sub.copy(autoaim);
         (void)mcu_imu_sub.copy(imu);
+
+        // 电机反馈（用于 now_* 状态/发布）
+        if (yaw_fb_sub.copy(yaw_fb)) {
+            now_yaw_angle_ = yaw_fb.total_angle_rad;
+            yaw_now_angle_noncumulative_ = yaw_fb.angle_rad;
+            now_yaw_omega_ = yaw_fb.omega_rad_s;
+        }
+        if (pitch_fb_sub.copy(pitch_fb)) {
+            now_pitch_angle_ = pitch_fb.total_angle_rad;
+            pitch_now_angle_noncumulative_ = pitch_fb.angle_rad;
+            now_pitch_omega_ = pitch_fb.omega_rad_s;
+        }
 
         // IMU 输入
         SetYawImuAngle(imu.yaw_total_angle_f);
@@ -306,8 +290,6 @@ void Gimbal::Task()
             c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
             orb::dm_mit_admin_cmd.publish(c);
         }
-
-        SelfResolution();
 
         // 发布 gimbal 状态（供其他模块订阅读取）
         orb::GimbalState st{};

@@ -11,7 +11,7 @@
 
 ## 2. 关键文件
 
-- `dvc_MCU_comm.h/.cpp`
+- `mcu_comm.h/.cpp`
   - `class McuComm`：CAN 绑定、接收回调、数据处理、发布 Topic、自动发送 TxTask。
 
 ## 3. 线程模型
