@@ -84,10 +84,10 @@ public:
               float out_max = 0.0f, 
               float d_t = 0.001f, 
               float dead_zone = 0.0f, 
-              float i_variable_apeed_A = 0.0f, 
+              float i_variable_speed_A = 0.0f, 
               float i_variable_speed_B = 0.0f, 
               float i_separate_threshold = 0.0f, 
-                            DFirst d_first = DFirst::Disable,
+              DFirst d_first = DFirst::Disable,
               float d_lpf_tau = 0.0f
             );
 

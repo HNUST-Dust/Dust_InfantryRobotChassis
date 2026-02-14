@@ -111,27 +111,13 @@ public:
             0,
     };
 
-    // 依赖注入（HAL-free）
-    bool Bind(
-        orb::CanBus bus,
-        BspCanHandle can,
-        uint8_t can_rx_id,
-        uint8_t can_tx_id
-    );
-
-    // 启动任务（只做 RTOS 资源创建；当前仅包含自动发送 TxTask）
-    bool Start();
-
-    // Backward-compatible init wrappers
+    // 初始化并启动（原 Bind + Start 合并）
     void Init(
         orb::CanBus bus,
         BspCanHandle can,
         uint8_t can_rx_id,
         uint8_t can_tx_id
     );
-
-    // 启动自动发送任务（兼容旧名字）
-    void StartAutoTx();
 
     // RX callbacks (Platform frame)
     void CanRemoteControlRxCpltCallback(const BspCanFrame* frame);

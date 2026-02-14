@@ -27,6 +27,37 @@ using alg::float_constrain;
 using alg::float_to_uint;
 using alg::uint_to_float;
 
+static inline alg::PidConfig make_pid_cfg(float kp,
+                                         float ki,
+                                         float kd,
+                                         float kf,
+                                         float i_out_max,
+                                         float out_max,
+                                         float dt,
+                                         float dead_zone,
+                                         float i_variable_speed_A,
+                                         float i_variable_speed_B,
+                                         float i_separate_threshold,
+                                         alg::DFirst d_first,
+                                         float d_lpf_tau)
+{
+    alg::PidConfig cfg{};
+    cfg.kp = kp;
+    cfg.ki = ki;
+    cfg.kd = kd;
+    cfg.kf = kf;
+    cfg.i_out_max = i_out_max;
+    cfg.out_max = out_max;
+    cfg.dt = dt;
+    cfg.dead_zone = dead_zone;
+    cfg.i_variable_speed_A = i_variable_speed_A;
+    cfg.i_variable_speed_B = i_variable_speed_B;
+    cfg.i_separate_threshold = i_separate_threshold;
+    cfg.d_first = d_first;
+    cfg.d_lpf_tau = d_lpf_tau;
+    return cfg;
+}
+
 static constexpr size_t kMaxMotors = 8;
 
 // 电机注册表：key = (bus + tx_id(base_std_id) + rx_id(can_rx_id))
@@ -207,6 +238,157 @@ void DmMitMin::PublishMitTx(float kp, float kd) {
 
     const uint16_t std_id = static_cast<uint16_t>(cfg_.base_std_id) | static_cast<uint16_t>(cfg_.can_rx_id & 0x0F);
     PublishFrame(std_id, data, 8);
+}
+
+void DmMitMin::ConfigureCascadePid(const alg::PidConfig& angle_cfg,
+                                   const alg::PidConfig& omega_cfg,
+                                   float angle_to_omega_sign,
+                                   float omega_feedback_sign)
+{
+    pid_angle_.configure(angle_cfg);
+    pid_omega_.configure(omega_cfg);
+    angle_to_omega_sign_ = angle_to_omega_sign;
+    omega_feedback_sign_ = omega_feedback_sign;
+    cascade_pid_inited_ = true;
+}
+
+void DmMitMin::ConfigureGimbalCascadePidDefaults(CascadeAxis axis, CascadeFeedback fb)
+{
+    // 参数来自历史 app_gimbal.cpp：
+    // - yaw/pitch 角度环（IMU/ENCODER 各一套）
+    // - yaw/pitch 速度环（各一套）
+    // 同时固化符号约定：angle_to_omega_sign=-1；yaw 速度反馈取反。
+
+    alg::PidConfig angle_cfg{};
+    alg::PidConfig omega_cfg{};
+
+    if (axis == CascadeAxis::Yaw) {
+        if (fb == CascadeFeedback::Encoder) {
+            angle_cfg = make_pid_cfg(
+                100.0f, 5.0f, 15.0f, 0.0f,
+                0.0f, 44.0f,
+                0.001f,
+                0.0f,
+                0.0f, 0.0f,
+                0.0f,
+                alg::DFirst::Disable,
+                0.01f);
+        } else {
+            angle_cfg = make_pid_cfg(
+                1.8f, 0.1f, 0.4f, 1.0f,
+                44.0f, 44.0f,
+                0.001f,
+                0.0f,
+                0.0f, 0.0f,
+                0.0f,
+                alg::DFirst::Disable,
+                0.01f);
+        }
+
+        omega_cfg = make_pid_cfg(
+            0.04f, 0.008f, 0.00015f, 0.1f,
+            3.0f, 9.9f,
+            0.001f,
+            0.0f,
+            0.0f, 0.0f,
+            0.0f,
+            alg::DFirst::Disable,
+            0.01f);
+
+        ConfigureCascadePid(angle_cfg, omega_cfg, -1.0f, -1.0f);
+        return;
+    }
+
+    // Pitch
+    if (fb == CascadeFeedback::Encoder) {
+        angle_cfg = make_pid_cfg(
+            350.0f, 20.0f, 20.0f, 0.0f,
+            0.0f, 44.0f,
+            0.001f,
+            0.0f,
+            0.0f, 0.0f,
+            0.0f,
+            alg::DFirst::Disable,
+            0.02f);
+    } else {
+        angle_cfg = make_pid_cfg(
+            4.0f, 1.50f, 0.25f, 0.0f,
+            44.0f, 44.0f,
+            0.001f,
+            0.0f,
+            0.0f, 0.0f,
+            0.0f,
+            alg::DFirst::Disable,
+            0.02f);
+    }
+
+    omega_cfg = make_pid_cfg(
+        0.08f, 0.008f, 0.0000f, 1.0f,
+        3.0f, 9.9f,
+        0.001f,
+        0.0f,
+        0.0f, 0.0f,
+        0.0f,
+        alg::DFirst::Disable,
+        0.01f);
+
+    ConfigureCascadePid(angle_cfg, omega_cfg, -1.0f, 1.0f);
+}
+
+float DmMitMin::UpdateAngleToOmega(float target_angle_rad, float measured_angle_rad)
+{
+    configASSERT(cascade_pid_inited_);
+    if (!cascade_pid_inited_) {
+        return 0.0f;
+    }
+    const float omega_sp = angle_to_omega_sign_ * pid_angle_.update(target_angle_rad, measured_angle_rad);
+    return omega_sp;
+}
+
+float DmMitMin::UpdateOmegaToTorque(float target_omega_rad_s, float measured_omega_rad_s)
+{
+    configASSERT(cascade_pid_inited_);
+    if (!cascade_pid_inited_) {
+        return 0.0f;
+    }
+
+    // 保持与历史业务层符号约定一致：允许对反馈角速度整体取反。
+    float torque = pid_omega_.update(target_omega_rad_s, omega_feedback_sign_ * measured_omega_rad_s);
+
+    // 额外防御：扭矩命令不超过电机允许范围。
+    torque = float_constrain(torque, -cfg_.torque_max, cfg_.torque_max);
+    last_torque_cmd_ = torque;
+    return torque;
+}
+
+float DmMitMin::UpdateCascadeTorqueAngleMode(float target_angle_rad,
+                                             float measured_angle_rad,
+                                             float measured_omega_rad_s)
+{
+    const float omega_sp = UpdateAngleToOmega(target_angle_rad, measured_angle_rad);
+    return UpdateOmegaToTorque(omega_sp, measured_omega_rad_s);
+}
+
+float DmMitMin::UpdateCascadeTorque(CascadeMode mode,
+                                    float target_angle_rad,
+                                    float target_omega_rad_s,
+                                    float omega_ff_rad_s,
+                                    float measured_angle_rad,
+                                    float measured_omega_rad_s,
+                                    float* out_omega_sp_rad_s)
+{
+    float omega_sp = 0.0f;
+    if (mode == CascadeMode::Angle) {
+        omega_sp = UpdateAngleToOmega(target_angle_rad, measured_angle_rad);
+    } else {
+        omega_sp = target_omega_rad_s + omega_ff_rad_s;
+    }
+
+    if (out_omega_sp_rad_s) {
+        *out_omega_sp_rad_s = omega_sp;
+    }
+
+    return UpdateOmegaToTorque(omega_sp, measured_omega_rad_s);
 }
 
 void DmMitMin::PublishAdminTail(uint8_t tail)

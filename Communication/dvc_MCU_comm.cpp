@@ -26,19 +26,6 @@
 
 #include "../communication_topic/can_topics.hpp"
 
-#include "bsp_dwt.h"
-#include "../daemon_supervisor/supervisor.hpp"
-
-namespace {
-inline uint32_t now_ms()
-{
-    return static_cast<uint32_t>(dwt_get_timeline_ms());
-}
-
-void mcu_comm_daemon_fault(DaemonClient&) {}
-
-DaemonClient* s_mcu_comm_daemon = nullptr;
-} // namespace
 
 McuComm& McuComm::Instance()
 {
@@ -46,81 +33,24 @@ McuComm& McuComm::Instance()
     return inst;
 }
 
-bool McuComm::Bind(orb::CanBus bus, BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
+void McuComm::Init(orb::CanBus bus, BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
 {
+    // Init 语义：完成依赖注入 + 启动自动发送 TxTask（原 Bind + Start 合并）
     configASSERT(started_ == false);
     if (started_) {
-        return false;
+        return;
     }
 
     configASSERT(can != nullptr);
+    if (can == nullptr) {
+        return;
+    }
     can_handle_ = can;
     tx_bus_ = bus;
     can_rx_id_ = can_rx_id;
     can_tx_id_ = can_tx_id;
-    return (can_handle_ != nullptr);
-}
 
-bool McuComm::Start()
-{
-    // 当前 McuComm 的“启动”语义就是启动自动发送 TxTask（原 StartAutoTx）
-    if (started_) {
-        configASSERT(false);
-        return false;
-    }
-    if (can_handle_ == nullptr) {
-        configASSERT(false);
-        return false;
-    }
-
-    // Online criterion: receiving fresh CAN data from external MCU.
-    {
-        static DaemonClient daemon(
-            200,
-            mcu_comm_daemon_fault,
-            this,
-            DaemonClient::Domain::COMM,
-            DaemonClient::FaultLevel::FATAL,
-            DaemonClient::Priority::CRITICAL);
-        s_mcu_comm_daemon = &daemon;
-        (void)DaemonSupervisor::register_client(s_mcu_comm_daemon);
-        // Baseline timestamp; subsequent feed is driven by actual RX callbacks.
-        s_mcu_comm_daemon->feed(now_ms());
-    }
-
-    StartAutoTx();
-    started_ = true;
-    return true;
-}
-
-void McuComm::Init(orb::CanBus bus, BspCanHandle can, uint8_t can_rx_id, uint8_t can_tx_id)
-{
-    (void)Bind(bus, can, can_rx_id, can_tx_id);
-    // 兼容旧逻辑：Init 后仍由外部调用 StartAutoTx/Start；这里不强制调用 Start()
-}
-
-// 任务入口（静态函数）—— osThreadNew 需要这个原型
-void McuComm::TaskEntry(void *argument) {
-     McuComm *self = static_cast<McuComm *>(argument);  // 还原 this 指针
-     self->Task();  // 调用成员函数
-}
-
-// 实际任务逻辑
-void McuComm::Task() {
-     struct McuCommData mcu_comm_data_local;
-     for (;;)
-     {
-          // 用临界区一次性复制，避免撕裂
-          // __disable_irq();
-          // mcu_comm_data__Local = *const_cast<const struct McuCommData*>(&(mcu_comm_data_));
-          // __enable_irq();
-          // osDelay(pdMS_TO_TICKS(10));
-     }
-}
-
-
-void McuComm::StartAutoTx()
-{
+    // 启动自动发送 TxTask
     if (auto_tx_started_) {
         configASSERT(false);
         return;
@@ -152,6 +82,27 @@ void McuComm::StartAutoTx()
         configASSERT(false);
         return;
     }
+
+    started_ = true;
+}
+
+// 任务入口（静态函数）—— osThreadNew 需要这个原型
+void McuComm::TaskEntry(void *argument) {
+     McuComm *self = static_cast<McuComm *>(argument);  // 还原 this 指针
+     self->Task();  // 调用成员函数
+}
+
+// 实际任务逻辑
+void McuComm::Task() {
+     struct McuCommData mcu_comm_data_local;
+     for (;;)
+     {
+          // 用临界区一次性复制，避免撕裂
+          // __disable_irq();
+          // mcu_comm_data__Local = *const_cast<const struct McuCommData*>(&(mcu_comm_data_));
+          // __enable_irq();
+          // osDelay(pdMS_TO_TICKS(10));
+     }
 }
 
 void McuComm::TxTaskEntry(void *param)
@@ -228,9 +179,6 @@ void McuComm::CanRemoteControlRxCpltCallback(const BspCanFrame* frame)
         return;
     }
 
-    if (s_mcu_comm_daemon) {
-        s_mcu_comm_daemon->feed(now_ms());
-    }
 
     mcu_comm_data_.yaw             = rx_data[0];
     mcu_comm_data_.pitch_angle     = rx_data[1];
@@ -279,10 +227,6 @@ void McuComm::CanAutoAimInfoRxCpltCallback(const BspCanFrame* frame)
         return;
     }
 
-    if (s_mcu_comm_daemon) {
-        s_mcu_comm_daemon->feed(now_ms());
-    }
-
     memcpy(&mcu_autoaim_data_.yaw_angle, &rx_data[0], 4);
     memcpy(&mcu_autoaim_data_.pitch_angle, &rx_data[4], 4);
 
@@ -300,9 +244,6 @@ void McuComm::CanImuInfoRxCpltCallback(const BspCanFrame* frame)
         return;
     }
 
-    if (s_mcu_comm_daemon) {
-        s_mcu_comm_daemon->feed(now_ms());
-    }
 
     memcpy(&mcu_imu_data_.yaw_total_angle_f, &rx_data[0], 4);
     memcpy(&mcu_imu_data_.pitch_f, &rx_data[4], 4);

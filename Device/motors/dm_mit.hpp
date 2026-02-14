@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "bsp_can_port.h"
+#include "control/alg_pid.h"
 #include "can_topics.hpp"
 
 namespace actuator::drivers {
@@ -40,6 +41,59 @@ public:
     void SetControl(float angle, float omega, float torque);
 
     void PublishMitTx(float kp = 0.0f, float kd = 0.0f);
+
+    // ===== Cascaded PID (Angle -> Omega -> Torque) =====
+    // 说明：
+    // - PID 放在电机类内（与 DjiC6xxMin 风格一致）。
+    // - 反馈可由上层传入（例如云台 IMU 模式下使用 IMU 角度/角速度）。
+    // - 输出为 torque（N·m），用于 MIT 协议的 t 字段。
+
+    void ConfigureCascadePid(const alg::PidConfig& angle_cfg,
+                             const alg::PidConfig& omega_cfg,
+                             float angle_to_omega_sign,
+                             float omega_feedback_sign);
+
+    enum class CascadeAxis : uint8_t {
+        Yaw = 0,
+        Pitch,
+    };
+
+    enum class CascadeFeedback : uint8_t {
+        Imu = 0,
+        Encoder,
+    };
+
+    // 使用工程内“云台默认参数”配置串级 PID。
+    // 说明：这些参数原本位于 app_gimbal.cpp，现在下沉到电机类中统一管理。
+    void ConfigureGimbalCascadePidDefaults(CascadeAxis axis, CascadeFeedback fb);
+
+    enum class CascadeMode : uint8_t {
+        Angle = 0,
+        Omega,
+    };
+
+    // 单步更新：根据模式 + 目标 + 测量值，内部完成 Angle->Omega->Torque 计算。
+    // - mode==Angle: target_angle 生效；target_omega/omega_ff 仅用于 Omega 模式
+    // - mode==Omega: omega_sp = target_omega + omega_ff
+    // 返回：torque_cmd (N·m)
+    float UpdateCascadeTorque(CascadeMode mode,
+                              float target_angle_rad,
+                              float target_omega_rad_s,
+                              float omega_ff_rad_s,
+                              float measured_angle_rad,
+                              float measured_omega_rad_s,
+                              float* out_omega_sp_rad_s = nullptr);
+
+    // 角度环输出：目标角度 -> 目标角速度（rad/s）
+    float UpdateAngleToOmega(float target_angle_rad, float measured_angle_rad);
+
+    // 速度环输出：目标角速度 -> 目标扭矩（N·m）
+    float UpdateOmegaToTorque(float target_omega_rad_s, float measured_omega_rad_s);
+
+    // 级联：角度模式一次算出扭矩
+    float UpdateCascadeTorqueAngleMode(float target_angle_rad,
+                                       float measured_angle_rad,
+                                       float measured_omega_rad_s);
 
     // 上电 bring-up 辅助（阻塞、best-effort）。
     // 内部用 DWT delay，因此可在 osKernelStart() 前调用。
@@ -82,6 +136,14 @@ private:
     float ctrl_angle_ = 0.0f;
     float ctrl_omega_ = 0.0f;
     float ctrl_torque_ = 0.0f;
+
+    bool cascade_pid_inited_ = false;
+    float angle_to_omega_sign_ = 1.0f;
+    float omega_feedback_sign_ = 1.0f;
+    float last_torque_cmd_ = 0.0f;
+
+    alg::Pid pid_angle_{};
+    alg::Pid pid_omega_{};
 
     static void PackMit(float p, float v, float kp, float kd, float t, uint8_t out[8],
                         float pmax, float vmax, float kpmax, float kdmax, float tmax);

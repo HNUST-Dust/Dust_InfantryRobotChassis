@@ -28,17 +28,13 @@ class DebugTools
 private:
     BspUartHandle uart_ = nullptr;
     orb::UartPort vofa_port_ = orb::UartPort::U7;
-    bool bound_ = false;
     bool started_ = false;
 
 public:
     // Singleton accessor (explicit call-site; no global free-function)
     static DebugTools& Instance();
 
-    // Bind UART handle (for RX wiring reference) and select VOFA TX port (for orb::uart_tx)
-    void Bind(BspUartHandle uart, orb::UartPort vofa_port);
-
-    bool Start();
+    void Init(BspUartHandle uart, orb::UartPort vofa_port);
 
     void VofaSendFloat(float data);
     void VofaSendTail();

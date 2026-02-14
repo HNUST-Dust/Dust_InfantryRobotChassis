@@ -13,20 +13,6 @@
 
 #include "../communication_topic/can_topics.hpp"
 
-#include "bsp_dwt.h"
-#include "../daemon_supervisor/supervisor.hpp"
-
-namespace {
-inline uint32_t now_ms()
-{
-    return static_cast<uint32_t>(dwt_get_timeline_ms());
-}
-
-void supercap_daemon_fault(DaemonClient&) {}
-
-DaemonClient* s_supercap_daemon = nullptr;
-} // namespace
-
 // Topic pub-sub
 #include "../communication_topic/device_topics.hpp"
 #include "../communication_topic/mcu_topics.hpp"
@@ -35,71 +21,6 @@ Supercap& Supercap::Instance()
 {
     static Supercap inst;
     return inst;
-}
-
-bool Supercap::Bind(orb::CanBus bus, BspCanHandle can, uint16_t can_rx_id, uint16_t can_tx_id)
-{
-    configASSERT(started_ == false);
-    if (started_) {
-        return false;
-    }
-
-    configASSERT(can != nullptr);
-    can_handle_ = can;
-    tx_bus_ = bus;
-    can_rx_id_ = can_rx_id;
-    can_tx_id_ = can_tx_id;
-
-    // default params
-    power_limit_max_ = 55;
-    power_compensate_max_ = 50;
-    supercap_enable_status_ = SUPERCAP_STATUS_ENABLE;
-
-    return (can_handle_ != nullptr);
-}
-
-bool Supercap::Start()
-{
-    if (started_) {
-        configASSERT(false);
-        return false;
-    }
-    if (can_handle_ == nullptr) {
-        configASSERT(false);
-        return false;
-    }
-
-    static const osThreadAttr_t kSupercapTaskAttr = {
-        .name = "supercap_task",
-        .cb_mem = &tcb_,
-        .cb_size = sizeof(tcb_),
-        .stack_mem = stack_,
-        .stack_size = sizeof(stack_),
-        .priority = (osPriority_t) osPriorityNormal
-    };
-    thread_ = osThreadNew(Supercap::TaskEntry, this, &kSupercapTaskAttr);
-    if (!thread_) {
-        configASSERT(false);
-        return false;
-    }
-
-    // Online criterion: receiving fresh CAN frames from external supercap.
-    {
-        static DaemonClient daemon(
-            500,
-            supercap_daemon_fault,
-            this,
-            DaemonClient::Domain::POWER,
-            DaemonClient::FaultLevel::DEGRADED,
-            DaemonClient::Priority::HIGH);
-        s_supercap_daemon = &daemon;
-        (void)DaemonSupervisor::register_client(s_supercap_daemon);
-        // Baseline timestamp; subsequent feed is driven by CanRxCpltCallback.
-        s_supercap_daemon->feed(now_ms());
-    }
-
-    started_ = true;
-    return true;
 }
 
 /**
@@ -115,11 +36,43 @@ void Supercap::Init(
     uint16_t can_rx_id,
     uint16_t can_tx_id)
 {
-    (void)Bind(bus, can, can_rx_id, can_tx_id);
-    (void)Start();
+    configASSERT(started_ == false);
+    if (started_) {
+        return;
+    }
+
+    configASSERT(can != nullptr);
+    if (can == nullptr) {
+        return;
+    }
+
+    can_handle_ = can;
+    tx_bus_ = bus;
+    can_rx_id_ = can_rx_id;
+    can_tx_id_ = can_tx_id;
+
+    // default params
+    power_limit_max_ = 55;
+    power_compensate_max_ = 50;
+    supercap_enable_status_ = SUPERCAP_STATUS_ENABLE;
+
+    static const osThreadAttr_t kSupercapTaskAttr = {
+        .name = "supercap_task",
+        .cb_mem = &tcb_,
+        .cb_size = sizeof(tcb_),
+        .stack_mem = stack_,
+        .stack_size = sizeof(stack_),
+        .priority = (osPriority_t) osPriorityNormal
+    };
+    thread_ = osThreadNew(Supercap::TaskEntry, this, &kSupercapTaskAttr);
+    if (!thread_) {
+        configASSERT(false);
+        return;
+    }
+
+    started_ = true;
 }
 
-// 任务入口（静态函数）—— osThreadNew 需要这个原型
 void Supercap::TaskEntry(void *argument)
 {
     Supercap *self = static_cast<Supercap *>(argument);  // 还原 this 指针
@@ -144,10 +97,6 @@ void Supercap::CanRxCpltCallback(const BspCanFrame *frame)
 
     if (frame->len < sizeof(SupercapRecivedData)) {
         return;
-    }
-
-    if (s_supercap_daemon) {
-        s_supercap_daemon->feed(now_ms());
     }
 
     const auto *temp_buffer = reinterpret_cast<const SupercapRecivedData *>(frame->data);

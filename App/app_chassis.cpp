@@ -35,7 +35,7 @@ Chassis& Chassis::Instance()
     return inst;
 }
 
-void Chassis::Start()
+void Chassis::Init()
 {
     if (started_) {
         configASSERT(false);

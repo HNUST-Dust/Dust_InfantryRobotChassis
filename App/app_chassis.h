@@ -32,10 +32,8 @@ class Chassis
 public:
     static Chassis& Instance();
 
-    static void StartGlobal() { Instance().Start(); }
-    static void ExitGlobal() { Instance().Exit(); }
 
-    void Start();
+    void Init();
     void Task();
     void Exit();
     inline void SetTargetVxInGimbal(float target_vx);

@@ -25,7 +25,6 @@
 
 // module
 #include "debug_tools.h"
-#include "control/alg_pid.h"
 #include "math/interpolation.hpp"
 #include "filter/low_pass_filter.hpp"
 
@@ -56,10 +55,7 @@ class Gimbal
 public:
     static Gimbal& Instance();
 
-    static void StartGlobal() { Instance().Start(); }
-    static void ExitGlobal() { Instance().Exit(); }
-
-    void Start();
+    void Init();
     void Task();
     void Exit();
     void SetYawZero();
@@ -80,6 +76,16 @@ public:
     inline float GetNowPitchTorque()
     {
         return now_pitch_torque_;
+    }
+
+    inline float GetTargetYawTorque()
+    {
+        return target_yaw_torque_;
+    }
+
+    inline float GetTargetPitchTorque()
+    {
+        return target_pitch_torque_;
     }
     inline float GetTargetYawAngle();
 
@@ -260,12 +266,6 @@ protected:
     float imu_pitch_angle_ = 0.0f;
     // pitch imu 角速度
     float imu_pitch_omega_ = 0.0f;
-
-    // PID（业务层仍负责计算目标 omega 等）
-    alg::Pid yaw_angle_pid_{};
-    alg::Pid pitch_angle_pid_{};
-    alg::Pid yaw_omega_pid_{};
-    alg::Pid pitch_omega_pid_{};
 
     // 低通滤波器
     alg::LowPassFilter yaw_omega_filter_{};

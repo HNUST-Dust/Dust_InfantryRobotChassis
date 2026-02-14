@@ -102,18 +102,7 @@ public:
     // Singleton accessor (explicit call-site; no global free-function)
     static Supercap& Instance();
 
-    // 依赖注入（HAL-free）
-    bool Bind(
-        orb::CanBus bus,
-        BspCanHandle can,
-        uint16_t can_rx_id = 0x100,
-        uint16_t can_tx_id = 0x001
-    );
-
-    // 启动任务（只做 RTOS 资源创建）
-    bool Start();
-
-    // Backward-compatible init (HAL-free)
+    // 初始化并启动（原 Bind + Start 合并，HAL-free）
     void Init(
         orb::CanBus bus,
         BspCanHandle can,

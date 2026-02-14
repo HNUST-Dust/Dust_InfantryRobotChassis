@@ -21,19 +21,6 @@
 
 #include "../communication_topic/uart_topics.hpp"
 
-#include "bsp_dwt.h"
-#include "../daemon_supervisor/supervisor.hpp"
-
-namespace {
-inline uint32_t now_ms()
-{
-    return static_cast<uint32_t>(dwt_get_timeline_ms());
-}
-
-void referee_daemon_fault(DaemonClient&) {}
-
-DaemonClient* s_referee_daemon = nullptr;
-} // namespace
 
 Referee& Referee::Instance()
 {
@@ -41,38 +28,21 @@ Referee& Referee::Instance()
     return inst;
 }
 
-bool Referee::Bind(BspUartHandle uart, orb::UartPort tx_port)
+void Referee::Init(BspUartHandle uart, orb::UartPort tx_port)
 {
     // 严格策略：已启动后不允许重新绑定，避免竞态/发送到错误串口。
     configASSERT(started_ == false);
     if (started_) {
-        return false;
+        return;
     }
 
     configASSERT(uart != nullptr);
+    if (uart == nullptr) {
+        return;
+    }
+
     uart_ = uart;
     tx_port_ = tx_port;
-    return (uart_ != nullptr);
-}
-
-bool Referee::Bind(BspUartHandle uart)
-{
-    return Bind(uart, orb::UartPort::U1);
-}
-
-bool Referee::Start()
-{
-    // 幂等：只允许启动一次
-    if (started_) {
-        configASSERT(false);
-        return false;
-    }
-
-    // 必须先 Bind
-    if (uart_ == nullptr) {
-        configASSERT(false);
-        return false;
-    }
 
     static const osThreadAttr_t kRefereeTaskAttr = {
         .name = "referee_task",
@@ -82,38 +52,10 @@ bool Referee::Start()
     thread_ = osThreadNew(Referee::TaskEntry, this, &kRefereeTaskAttr);
     if (!thread_) {
         configASSERT(false);
-        return false;
-    }
-
-    // Online criterion: receiving fresh referee UART frames.
-    {
-        static DaemonClient daemon(
-            500,
-            referee_daemon_fault,
-            this,
-            DaemonClient::Domain::COMM,
-            DaemonClient::FaultLevel::WARN,
-            DaemonClient::Priority::NORMAL);
-        s_referee_daemon = &daemon;
-        (void)DaemonSupervisor::register_client(s_referee_daemon);
-        // Baseline timestamp; subsequent feed is driven by RxCpltCallback.
-        s_referee_daemon->feed(now_ms());
+        return;
     }
 
     started_ = true;
-    return true;
-}
-
-void Referee::Init(BspUartHandle uart)
-{
-    (void)Bind(uart);
-    (void)Start();
-}
-
-void Referee::Init()
-{
-    // Prefer Platform init; RX is already started in Bsp_BringUp via bsp_uart_init.
-    Init(bsp_uart_get(BSP_UART1));
 }
 
 bool Referee::Send(uint8_t* data, uint16_t length)
@@ -173,10 +115,6 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
         out.power_management_shooter_output = s.power_management_shooter_output;
         orb::referee_status.publish(out);
 
-        if (s_referee_daemon) {
-            s_referee_daemon->feed(now_ms());
-        }
-
         ui_update_requested_ = true;
     } else if (msg_id == kShootDataId && payload_len >= sizeof(ShootData)) {
         ShootData sh{};
@@ -188,10 +126,6 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
         out.launching_frequency = sh.launching_frequency;
         out.initial_speed = sh.initial_speed;
         orb::referee_shoot.publish(out);
-
-        if (s_referee_daemon) {
-            s_referee_daemon->feed(now_ms());
-        }
 
         ui_update_requested_ = true;
     }

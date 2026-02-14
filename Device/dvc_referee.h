@@ -39,20 +39,8 @@ public:
     // Singleton accessor (explicit call-site; no global free-function)
     static Referee& Instance();
 
-    // 依赖注入（HAL-free）
-    // 返回 false 表示拒绝此次绑定（例如已启动后不允许重新 Bind）
-    bool Bind(BspUartHandle uart);
-
-    // TX 端口可配：用于把 Send() 输出路由到统一 UartTxTask
-    bool Bind(BspUartHandle uart, orb::UartPort tx_port);
-
-    // 启动任务（只做 RTOS 资源创建）
-    // 返回 false 表示启动失败或已启动
-    bool Start();
-
-    // Backward-compatible init wrappers
-    void Init(BspUartHandle uart);
-    void Init();
+    // 初始化并启动（原 Bind + Start 合并）
+    void Init(BspUartHandle uart, orb::UartPort tx_port = orb::UartPort::U1);
 
     void Task();
     void FreshDynamicUI();

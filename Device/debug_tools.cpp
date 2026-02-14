@@ -8,21 +8,10 @@
 #include <cstdint>
 #include <cstring>
 
+#include "FreeRTOS.h"
+#include "task.h"
+
 #include "../communication_topic/uart_topics.hpp"
-
-#include "bsp_dwt.h"
-#include "../daemon_supervisor/supervisor.hpp"
-
-namespace {
-inline uint32_t now_ms()
-{
-    return static_cast<uint32_t>(dwt_get_timeline_ms());
-}
-
-void vofa_daemon_fault(DaemonClient&) {}
-
-DaemonClient* s_vofa_daemon = nullptr;
-} // namespace
 
 DebugTools& DebugTools::Instance()
 {
@@ -30,40 +19,21 @@ DebugTools& DebugTools::Instance()
     return inst;
 }
 
-void DebugTools::Bind(BspUartHandle uart, orb::UartPort vofa_port)
-{
-    uart_ = uart;
-    vofa_port_ = vofa_port;
-    bound_ = true;
-}
-
-bool DebugTools::Start()
+void DebugTools::Init(BspUartHandle uart, orb::UartPort vofa_port)
 {
     if (started_) {
-        return false;
+        configASSERT(false);
+        return;
     }
-    // For VOFA we only need TX port configuration; RX is wired in App_WirePlatformIo().
-    if (!bound_) {
-        return false;
+    configASSERT(uart != nullptr);
+    if (uart == nullptr) {
+        return;
     }
 
-    // Online criterion: receiving fresh VOFA RX frames from external debug tool.
-    {
-        static DaemonClient daemon(
-            1000,
-            vofa_daemon_fault,
-            this,
-            DaemonClient::Domain::COMM,
-            DaemonClient::FaultLevel::WARN,
-            DaemonClient::Priority::LOW);
-        s_vofa_daemon = &daemon;
-        (void)DaemonSupervisor::register_client(s_vofa_daemon);
-        // Baseline timestamp; subsequent feed is driven by VofaReceiveCallback.
-        s_vofa_daemon->feed(now_ms());
-    }
+    uart_ = uart;
+    vofa_port_ = vofa_port;
 
     started_ = true;
-    return true;
 }
 
 void DebugTools::VofaSendFloat(float data)
@@ -92,8 +62,4 @@ void DebugTools::VofaReceiveCallback(uint8_t *buffer, uint16_t length)
 {
     (void)buffer;
     (void)length;
-
-    if (s_vofa_daemon) {
-        s_vofa_daemon->feed(now_ms());
-    }
 }

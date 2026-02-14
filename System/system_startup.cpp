@@ -41,8 +41,8 @@
 namespace {
 static void daemon_system_fault(DaemonClient&)
 {
-    Chassis::ExitGlobal();
-    Gimbal::ExitGlobal();
+    Chassis::Instance().Exit();
+    Gimbal::Instance().Exit();
 
     // Also request actuator-layer exit for DM motors (best-effort)
     // Motor module is business-decoupled; address by bus + motor id.
@@ -79,8 +79,7 @@ void Board_BringUp(void)
 void Modules_BringUp(void)
 {
     // 守护系统初始化
-    DaemonSupervisor::set_system_fault_hook(daemon_system_fault);
-    DaemonSupervisor::Start();
+    DaemonSupervisor::Start(daemon_system_fault);
 
     // 大疆电机初始化（CAN1）    
     actuator::drivers::DjiC6xxMin::Config c{};
@@ -106,19 +105,15 @@ void Modules_BringUp(void)
     configASSERT(can1 != nullptr);
     
     actuator::instances::dji_201.Init(can1, c1);
-    actuator::instances::dji_201.SetTargetOmega(0.0f);
     actuator::instances::dji_201.JoinRuntime();
 
     actuator::instances::dji_202.Init(can1, c2);
-    actuator::instances::dji_202.SetTargetOmega(0.0f);
     actuator::instances::dji_202.JoinRuntime();
 
     actuator::instances::dji_203.Init(can1, c3);
-    actuator::instances::dji_203.SetTargetOmega(0.0f);
     actuator::instances::dji_203.JoinRuntime();
 
     actuator::instances::dji_204.Init(can1, c4);
-    actuator::instances::dji_204.SetTargetOmega(0.0f);
     actuator::instances::dji_204.JoinRuntime();
 
     // 达秒电机初始化（CAN3）
@@ -135,8 +130,7 @@ void Modules_BringUp(void)
 
     auto* can3 = bsp_can_get(BSP_CAN_BUS3);
     configASSERT(can3 != nullptr);
-    // Motor-level init + bring-up + join runtime (blocking, best-effort).
-    // NOTE: BringUpDefault() 内部使用 DWT delay，因此可在 osKernelStart() 前运行。
+
     auto& yaw = actuator::instances::dm_01;
     yaw.Init(can3, yaw_cfg);
     yaw.BringUpDefault();
@@ -148,28 +142,24 @@ void Modules_BringUp(void)
     pit.JoinRuntime();
     
     // 上下板通讯组件初始化（CAN2）
-    McuComm::Instance().Bind(orb::CanBus::CAN2, bsp_can_get(BSP_CAN_BUS2), 0x01, 0x00);
-    McuComm::Instance().Start();
+    McuComm::Instance().Init(orb::CanBus::CAN2, bsp_can_get(BSP_CAN_BUS2), 0x01, 0x00);
 
     // 超级电容初始化（CAN3）
-    Supercap::Instance().Bind(orb::CanBus::CAN3, bsp_can_get(BSP_CAN_BUS3), 0x100, 0x003);
-    Supercap::Instance().Start();
+    Supercap::Instance().Init(orb::CanBus::CAN3, bsp_can_get(BSP_CAN_BUS3), 0x100, 0x003);
 
     // 裁判系统初始化（UART1 RX already started in Bsp_BringUp）
-    Referee::Instance().Bind(bsp_uart_get(BSP_UART1), orb::UartPort::U1);
-    Referee::Instance().Start();
+    Referee::Instance().Init(bsp_uart_get(BSP_UART1), orb::UartPort::U1);
 
     // VOFA 初始化（UART7 RX already started in Bsp_BringUp）
-    DebugTools::Instance().Bind(bsp_uart_get(BSP_UART7), orb::UartPort::U7);
-    DebugTools::Instance().Start();
+    DebugTools::Instance().Init(bsp_uart_get(BSP_UART7), orb::UartPort::U7);
 }
 
 void App_Start(void)
 {
     // 启动底盘
-    Chassis::StartGlobal();
+    Chassis::Instance().Init();
     // 启动云台
-    Gimbal::StartGlobal();
+    Gimbal::Instance().Init();
 }
 
 void startup_thread(void *argument)

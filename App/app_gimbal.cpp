@@ -20,6 +20,8 @@ extern "C" {
 }
 #include <cstring>
 
+#include "../Device/motors/dm_mit.hpp"
+
 static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
 
 [[maybe_unused]] static constexpr TickType_t kFreeRtosTick0 = static_cast<TickType_t>(0);
@@ -44,7 +46,7 @@ Gimbal& Gimbal::Instance()
     return inst;
 }
 
-void Gimbal::Start()
+void Gimbal::Init()
 {
     if (started_) {
         configASSERT(false);
@@ -53,136 +55,26 @@ void Gimbal::Start()
 
     started_ = true;
 
-    // 业务层只做控制参数初始化（PID/滤波器等）
+    // 业务层不再持有串级 PID；电机类内部负责 PID 参数与串级计算。
+#if defined(YAW_ENCODER_MODE)
+    actuator::instances::dm_01.ConfigureGimbalCascadePidDefaults(
+        actuator::drivers::DmMitMin::CascadeAxis::Yaw,
+        actuator::drivers::DmMitMin::CascadeFeedback::Encoder);
+#elif defined(YAW_IMU_MODE)
+    actuator::instances::dm_01.ConfigureGimbalCascadePidDefaults(
+        actuator::drivers::DmMitMin::CascadeAxis::Yaw,
+        actuator::drivers::DmMitMin::CascadeFeedback::Imu);
+#endif
 
-    const auto make_pid_cfg = [](float kp,
-                                 float ki,
-                                 float kd,
-                                 float kf,
-                                 float i_out_max,
-                                 float out_max,
-                                 float dt,
-                                 float dead_zone,
-                                 float i_variable_speed_A,
-                                 float i_variable_speed_B,
-                                 float i_separate_threshold,
-                                 alg::DFirst d_first,
-                                 float d_lpf_tau) {
-        alg::PidConfig cfg{};
-        cfg.kp = kp;
-        cfg.ki = ki;
-        cfg.kd = kd;
-        cfg.kf = kf;
-        cfg.i_out_max = i_out_max;
-        cfg.out_max = out_max;
-        cfg.dt = dt;
-        cfg.dead_zone = dead_zone;
-        cfg.i_variable_speed_A = i_variable_speed_A;
-        cfg.i_variable_speed_B = i_variable_speed_B;
-        cfg.i_separate_threshold = i_separate_threshold;
-        cfg.d_first = d_first;
-        cfg.d_lpf_tau = d_lpf_tau;
-        return cfg;
-    };
-
-#ifdef YAW_ENCODER_MODE
-     //yaw轴角度环PID初始化
-    yaw_angle_pid_.configure(make_pid_cfg(
-        100.0f,
-        5.0f,
-        15.0f,
-        0.0f,
-        0.0f,
-        44.0f,
-        0.001f,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.0f,
-        alg::DFirst::Disable,
-        0.01f));
+#if defined(PITCH_ENCODER_MODE)
+    actuator::instances::dm_02.ConfigureGimbalCascadePidDefaults(
+        actuator::drivers::DmMitMin::CascadeAxis::Pitch,
+        actuator::drivers::DmMitMin::CascadeFeedback::Encoder);
+#elif defined(PITCH_IMU_MODE)
+    actuator::instances::dm_02.ConfigureGimbalCascadePidDefaults(
+        actuator::drivers::DmMitMin::CascadeAxis::Pitch,
+        actuator::drivers::DmMitMin::CascadeFeedback::Imu);
 #endif
-#ifdef YAW_IMU_MODE
-     //yaw轴角度环PID初始化
-    yaw_angle_pid_.configure(make_pid_cfg(
-        1.8f,
-        0.1f,
-        0.4f,
-        1.0f,
-        44.0f,
-        44.0f,
-        0.001f,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.0f,
-        alg::DFirst::Disable,
-        0.01f));
-#endif
-#ifdef PITCH_ENCODER_MODE
-    //pitch轴角度环PID初始化
-    pitch_angle_pid_.configure(make_pid_cfg(
-        350.0f,//350
-        20.0f,//160
-        20.0f,
-        0.0f,
-        0.0f,
-        44.0f,
-        0.001f,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.0f,
-        alg::DFirst::Disable,
-        0.02f));
-#endif
-#ifdef PITCH_IMU_MODE
-    //pitch轴角度环PID初始化
-    pitch_angle_pid_.configure(make_pid_cfg(
-        4.0f,
-        1.50f,
-        0.25f,
-        0.0f,
-        44.0f,
-        44.0f,
-        0.001f,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.0f,
-        alg::DFirst::Disable,
-        0.02f));
-#endif
-    //yaw轴速度环PID初始化
-    yaw_omega_pid_.configure(make_pid_cfg(
-        0.04f,
-        0.008f,
-        0.00015f,
-        0.1f,
-        3.0f,
-        9.9f,
-        0.001f,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.0f,
-        alg::DFirst::Disable,
-        0.01f));
-    //pitch轴速度环PID初始化
-    pitch_omega_pid_.configure(make_pid_cfg(
-        0.08f,
-        0.008f,
-        0.0000f,
-        1.0f,
-        3.0f,
-        9.9f,
-        0.001f,
-        0.0f,
-        0.0f,
-        0.0f,
-        0.0f,
-        alg::DFirst::Disable,
-        0.01f));
     // yaw轴速度环低通滤波器初始化
     yaw_omega_filter_.configure(15.0f, 0.001f);
     pitch_omega_filter_.configure(15.0f, 0.001f);
@@ -233,40 +125,34 @@ void Gimbal::SelfResolution()
     now_yaw_torque_ = 0.0f;
     now_pitch_torque_ = 0.0f;
 
-    // yaw 角度环
-#ifdef YAW_ENCODER_MODE
-    float yaw_err = CalcYawError(virtual_yaw_angle_, normalize_angle_pm_pi(GetNowYawAngle()/0.8f));
-    const float yaw_angle_out = yaw_angle_pid_.update(0.0f, yaw_err);
-    if(yaw_control_type_ == GIMBAL_CONTROL_TYPE_ANGLE){
-        SetTargetYawOmega(-yaw_angle_out);
-    }else if(yaw_control_type_ == GIMBAL_CONTROL_TYPE_OMEGA){
-        SetTargetYawOmega(GetTargetYawOmega() + GetYawOmegaFeedforword());
-    }
-#endif
-#ifdef YAW_IMU_MODE
-    if (yaw_control_type_ == GIMBAL_CONTROL_TYPE_ANGLE) {
-        const float yaw_angle_out = yaw_angle_pid_.update(virtual_yaw_angle_, imu_yaw_angle_);
-        SetTargetYawOmega(-yaw_angle_out);
-    } else if (yaw_control_type_ == GIMBAL_CONTROL_TYPE_OMEGA) {
-        SetTargetYawOmega(GetTargetYawOmega() + GetYawOmegaFeedforword());
-    }
-#endif
+    // ===== Yaw: 模式 -> 串级 PID（在电机类内部完成） =====
+    const auto yaw_mode = (yaw_control_type_ == GIMBAL_CONTROL_TYPE_OMEGA)
+                              ? actuator::drivers::DmMitMin::CascadeMode::Omega
+                              : actuator::drivers::DmMitMin::CascadeMode::Angle;
+    float yaw_omega_sp = 0.0f;
+    const float yaw_torque = actuator::instances::dm_01.UpdateCascadeTorque(
+        yaw_mode,
+        virtual_yaw_angle_,
+        GetTargetYawOmega(),
+        GetYawOmegaFeedforword(),
+        imu_yaw_angle_,
+        imu_yaw_omega_,
+        &yaw_omega_sp);
+    SetTargetYawOmega(yaw_omega_sp);
+    SetTargetYawTorque(yaw_torque);
 
-    // yaw 速度环
-    (void)yaw_omega_pid_.update(GetTargetYawOmega(), -imu_yaw_omega_);
-
-    // pitch 角度环
-#ifdef PITCH_ENCODER_MODE
-    const float pitch_angle_out = pitch_angle_pid_.update(virtual_pitch_angle_, GetPitchNowAngleNoncumulative());
-    SetTargetPitchOmega(pitch_angle_out);
-#endif
-#ifdef PITCH_IMU_MODE
-    const float pitch_angle_out = pitch_angle_pid_.update(virtual_pitch_angle_, imu_pitch_angle_);
-    SetTargetPitchOmega(-pitch_angle_out);
-#endif
-
-    // pitch 速度环
-    (void)pitch_omega_pid_.update(GetTargetPitchOmega(), imu_pitch_omega_);
+    // ===== Pitch: 仅角度模式（同样在电机类内部完成） =====
+    float pitch_omega_sp = 0.0f;
+    const float pitch_torque = actuator::instances::dm_02.UpdateCascadeTorque(
+        actuator::drivers::DmMitMin::CascadeMode::Angle,
+        virtual_pitch_angle_,
+        0.0f,
+        0.0f,
+        imu_pitch_angle_,
+        imu_pitch_omega_,
+        &pitch_omega_sp);
+    SetTargetPitchOmega(pitch_omega_sp);
+    SetTargetPitchTorque(pitch_torque);
 }
 
 void Gimbal::SetYawZero()
@@ -283,18 +169,18 @@ void Gimbal::Output()
     orb::DmMitTargetCmd t{};
     t.bus = orb::CanBus::CAN3;
     t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
-    t.angle = GetTargetYawAngle();
-    t.omega = GetTargetYawOmega();
-    t.torque = 0.0f;
+    t.angle = 0.0f;
+    t.omega = 0.0f;
+    t.torque = GetTargetYawTorque();
     t.kp = 0.0f;
     t.kd = 0.0f;
     orb::dm_mit_target_cmd.publish(t);
 
     t.bus = orb::CanBus::CAN3;
     t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
-    t.angle = GetTargetPitchAngle();
-    t.omega = GetTargetPitchOmega();
-    t.torque = 0.0f;
+    t.angle = 0.0f;
+    t.omega = 0.0f;
+    t.torque = GetTargetPitchTorque();
     t.kp = 0.0f;
     t.kd = 0.0f;
     orb::dm_mit_target_cmd.publish(t);
@@ -446,6 +332,14 @@ void Gimbal::Task()
         st.yaw_angle_noncumulative = GetYawNowAngleNoncumulative();
         st.pitch_angle_noncumulative = GetPitchNowAngleNoncumulative();
         orb::gimbal_state.publish(st);
+
+        // 发布给外部 MCU 的云台信息（由 McuComm::TxTask 订阅并转发到 CAN）
+        orb::GimbalInfoTx tx{};
+        tx.yaw_angle = st.yaw_angle;
+        tx.yaw_omega = st.yaw_omega;
+        tx.pitch_angle = st.pitch_angle;
+        tx.pitch_omega = st.pitch_omega;
+        orb::gimbal_info_tx.publish(tx);
 
         Output();
 
