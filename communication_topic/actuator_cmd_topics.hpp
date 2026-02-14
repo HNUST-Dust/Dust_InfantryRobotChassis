@@ -35,6 +35,27 @@ struct DmMitTargetCmd {
 
 inline RingTopic<DmMitTargetCmd, 16> dm_mit_target_cmd;
 
+// ===================== DM MIT Cascade (Angle->Omega->Torque in driver) =====================
+// 上层只发布目标与模式，PID 计算在 dm_mit 运行时线程内完成。
+enum class DmMitCascadeMode : uint8_t {
+    Angle = 0,
+    Omega = 1,
+};
+
+struct DmMitCascadeCmd {
+    CanBus bus = CanBus::CAN1;
+    uint8_t can_rx_id = 0x01;
+
+    bool enable = true;
+    DmMitCascadeMode mode = DmMitCascadeMode::Angle;
+
+    float target_angle = 0.0f;
+    float target_omega = 0.0f;
+    float omega_ff = 0.0f;
+};
+
+inline RingTopic<DmMitCascadeCmd, 16> dm_mit_cascade_cmd;
+
 enum class DmMitAdminOp : uint8_t {
     Enter = 0,
     Exit,

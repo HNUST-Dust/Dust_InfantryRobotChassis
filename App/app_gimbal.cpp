@@ -92,6 +92,19 @@ void Gimbal::Init()
 
 void Gimbal::Exit()
 {
+    // 禁用串级控制（由 dm_mit 运行时线程消费并停止周期输出）
+    {
+        orb::DmMitCascadeCmd c{};
+        c.bus = orb::CanBus::CAN3;
+        c.enable = false;
+
+        c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+        orb::dm_mit_cascade_cmd.publish(c);
+
+        c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+        orb::dm_mit_cascade_cmd.publish(c);
+    }
+
     orb::DmMitTargetCmd t{};
     t.bus = orb::CanBus::CAN3;
     t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
@@ -124,35 +137,6 @@ void Gimbal::SelfResolution()
     // 扭矩反馈当前未接入（这里先置 0）
     now_yaw_torque_ = 0.0f;
     now_pitch_torque_ = 0.0f;
-
-    // ===== Yaw: 模式 -> 串级 PID（在电机类内部完成） =====
-    const auto yaw_mode = (yaw_control_type_ == GIMBAL_CONTROL_TYPE_OMEGA)
-                              ? actuator::drivers::DmMitMin::CascadeMode::Omega
-                              : actuator::drivers::DmMitMin::CascadeMode::Angle;
-    float yaw_omega_sp = 0.0f;
-    const float yaw_torque = actuator::instances::dm_01.UpdateCascadeTorque(
-        yaw_mode,
-        virtual_yaw_angle_,
-        GetTargetYawOmega(),
-        GetYawOmegaFeedforword(),
-        imu_yaw_angle_,
-        imu_yaw_omega_,
-        &yaw_omega_sp);
-    SetTargetYawOmega(yaw_omega_sp);
-    SetTargetYawTorque(yaw_torque);
-
-    // ===== Pitch: 仅角度模式（同样在电机类内部完成） =====
-    float pitch_omega_sp = 0.0f;
-    const float pitch_torque = actuator::instances::dm_02.UpdateCascadeTorque(
-        actuator::drivers::DmMitMin::CascadeMode::Angle,
-        virtual_pitch_angle_,
-        0.0f,
-        0.0f,
-        imu_pitch_angle_,
-        imu_pitch_omega_,
-        &pitch_omega_sp);
-    SetTargetPitchOmega(pitch_omega_sp);
-    SetTargetPitchTorque(pitch_torque);
 }
 
 void Gimbal::SetYawZero()
@@ -166,24 +150,26 @@ void Gimbal::SetYawZero()
 
 void Gimbal::Output()
 {
-    orb::DmMitTargetCmd t{};
-    t.bus = orb::CanBus::CAN3;
-    t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
-    t.angle = 0.0f;
-    t.omega = 0.0f;
-    t.torque = GetTargetYawTorque();
-    t.kp = 0.0f;
-    t.kd = 0.0f;
-    orb::dm_mit_target_cmd.publish(t);
+    orb::DmMitCascadeCmd c{};
+    c.bus = orb::CanBus::CAN3;
+    c.enable = true;
 
-    t.bus = orb::CanBus::CAN3;
-    t.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
-    t.angle = 0.0f;
-    t.omega = 0.0f;
-    t.torque = GetTargetPitchTorque();
-    t.kp = 0.0f;
-    t.kd = 0.0f;
-    orb::dm_mit_target_cmd.publish(t);
+    // Yaw: 角度/角速度模式由上层决定
+    c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalYaw & 0x0F);
+    c.mode = (yaw_control_type_ == GIMBAL_CONTROL_TYPE_OMEGA) ? orb::DmMitCascadeMode::Omega
+                                                              : orb::DmMitCascadeMode::Angle;
+    c.target_angle = virtual_yaw_angle_;
+    c.target_omega = GetTargetYawOmega();
+    c.omega_ff = GetYawOmegaFeedforword();
+    orb::dm_mit_cascade_cmd.publish(c);
+
+    // Pitch: 当前仅角度模式
+    c.can_rx_id = static_cast<uint8_t>(motor_ids::kGimbalPitch & 0x0F);
+    c.mode = orb::DmMitCascadeMode::Angle;
+    c.target_angle = virtual_pitch_angle_;
+    c.target_omega = 0.0f;
+    c.omega_ff = 0.0f;
+    orb::dm_mit_cascade_cmd.publish(c);
 }
 
 /**

@@ -56,6 +56,7 @@ public:
     enum class CascadeAxis : uint8_t {
         Yaw = 0,
         Pitch,
+        Unknown = 255,
     };
 
     enum class CascadeFeedback : uint8_t {
@@ -66,6 +67,8 @@ public:
     // 使用工程内“云台默认参数”配置串级 PID。
     // 说明：这些参数原本位于 app_gimbal.cpp，现在下沉到电机类中统一管理。
     void ConfigureGimbalCascadePidDefaults(CascadeAxis axis, CascadeFeedback fb);
+
+    CascadeAxis cascade_axis() const { return cascade_axis_; }
 
     enum class CascadeMode : uint8_t {
         Angle = 0,
@@ -141,6 +144,8 @@ private:
     float angle_to_omega_sign_ = 1.0f;
     float omega_feedback_sign_ = 1.0f;
     float last_torque_cmd_ = 0.0f;
+
+    CascadeAxis cascade_axis_ = CascadeAxis::Unknown;
 
     alg::Pid pid_angle_{};
     alg::Pid pid_omega_{};

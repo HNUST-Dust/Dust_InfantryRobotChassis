@@ -20,7 +20,7 @@
 #include "arm_math.h"
 extern "C" {
 #include "FreeRTOS.h"
-#include "task.h" // for taskDISABLE_INTERRUPTS used by configASSERT
+#include "task.h" 
 }
 
 static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
@@ -122,7 +122,6 @@ void Chassis::Task()
     static constexpr float kChassisSpinSpeed = 30.0f;
     static constexpr float kYawGearRatio = 0.8f;
 
-    // Distributed: Chassis subscribes to inputs directly (no Robot aggregator)
     Subscription<orb::McuControl> mcu_control_sub(orb::mcu_control);
     Subscription<orb::GimbalState> gimbal_state_sub(orb::gimbal_state);
     orb::McuControl mcu{};

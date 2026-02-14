@@ -15,6 +15,7 @@ extern "C" {
 static_assert(configASSERT_DEFINED == 1, "configASSERT_DEFINED expected");
 
 #include "actuator_cmd_topics.hpp"
+#include "mcu_topics.hpp"
 
 #include "bsp_dwt.h"
 
@@ -60,6 +61,54 @@ static inline alg::PidConfig make_pid_cfg(float kp,
 
 static constexpr size_t kMaxMotors = 8;
 
+struct ActiveCascade {
+    DmMitMin* motor = nullptr;
+    orb::DmMitCascadeCmd cmd{};
+};
+
+static ActiveCascade s_active_cascade[kMaxMotors] = {};
+
+static inline ActiveCascade* find_active(DmMitMin* m)
+{
+    for (auto &e : s_active_cascade) {
+        if (e.motor == m) {
+            return &e;
+        }
+    }
+    return nullptr;
+}
+
+static inline ActiveCascade* upsert_active(DmMitMin* m)
+{
+    if (!m) {
+        return nullptr;
+    }
+    if (auto *e = find_active(m)) {
+        return e;
+    }
+    for (auto &e : s_active_cascade) {
+        if (e.motor == nullptr) {
+            e.motor = m;
+            return &e;
+        }
+    }
+    return nullptr;
+}
+
+static inline void remove_active(DmMitMin* m)
+{
+    if (!m) {
+        return;
+    }
+    for (auto &e : s_active_cascade) {
+        if (e.motor == m) {
+            e.motor = nullptr;
+            e.cmd = {};
+            return;
+        }
+    }
+}
+
 // 电机注册表：key = (bus + tx_id(base_std_id) + rx_id(can_rx_id))
 static MotorRegistry<DmMitMin, kMaxMotors> s_registry{};
 
@@ -69,14 +118,78 @@ static StackType_t s_task_stack[512];
 static osThreadId_t s_task_thread = nullptr;
 
 static void dm_mit_task(void*) {
-    // 单线程消费两个 RingTopic：
     // - orb::dm_mit_target_cmd：MIT 控制指令（角度/速度/力矩 + kp/kd）
     // - orb::dm_mit_admin_cmd：进入/退出/清错/存零点
     RingSub<orb::DmMitTargetCmd, 16> target_sub{orb::dm_mit_target_cmd};
     RingSub<orb::DmMitAdminCmd, 8> admin_sub{orb::dm_mit_admin_cmd};
+    RingSub<orb::DmMitCascadeCmd, 16> cascade_sub{orb::dm_mit_cascade_cmd};
+
+    Subscription<orb::McuImu> imu_sub(orb::mcu_imu);
+    orb::McuImu imu{};
 
     for (;;) {
-        // 目标控制：按 (bus + can_rx_id) 派发到对应实例并立即发 CAN 帧
+        // 最新 IMU（用于云台级串级 PID 反馈）
+        (void)imu_sub.copy(imu);
+
+        // 串级目标：更新 active 列表
+        {
+            orb::DmMitCascadeCmd c{};
+            while (cascade_sub.copy(c)) {
+                DmMitMin* m = s_registry.FindByBusRx(c.bus, static_cast<uint16_t>(c.can_rx_id));
+                if (!m) {
+                    continue;
+                }
+                if (!c.enable) {
+                    remove_active(m);
+                    continue;
+                }
+
+                ActiveCascade* e = upsert_active(m);
+                if (!e) {
+                    // active 表满了：忽略该命令（防御性处理）
+                    continue;
+                }
+                e->cmd = c;
+            }
+        }
+
+        // 串级 PID 计算与下发：每 1ms 对 active motors 刷新一次力矩
+        for (auto &e : s_active_cascade) {
+            if (!e.motor) {
+                continue;
+            }
+            DmMitMin* m = e.motor;
+            if (m->cascade_axis() == DmMitMin::CascadeAxis::Unknown) {
+                continue;
+            }
+
+            float measured_angle = 0.0f;
+            float measured_omega = 0.0f;
+            if (m->cascade_axis() == DmMitMin::CascadeAxis::Yaw) {
+                measured_angle = imu.yaw_total_angle_f;
+                measured_omega = imu.yaw_omega_f;
+            } else {
+                measured_angle = imu.pitch_f;
+                measured_omega = imu.pitch_omega_f;
+            }
+
+            const auto mode = (e.cmd.mode == orb::DmMitCascadeMode::Omega)
+                                  ? DmMitMin::CascadeMode::Omega
+                                  : DmMitMin::CascadeMode::Angle;
+
+            const float torque = m->UpdateCascadeTorque(
+                mode,
+                e.cmd.target_angle,
+                e.cmd.target_omega,
+                e.cmd.omega_ff,
+                measured_angle,
+                measured_omega,
+                nullptr);
+
+            m->SetTarget(0.0f, 0.0f, torque);
+            m->PublishMitTx(0.0f, 0.0f);
+        }
+
         orb::DmMitTargetCmd t{};
         while (target_sub.copy(t)) {
             DmMitMin* m = s_registry.FindByBusRx(t.bus, static_cast<uint16_t>(t.can_rx_id));
@@ -87,7 +200,6 @@ static void dm_mit_task(void*) {
             m->PublishMitTx(t.kp, t.kd);
         }
 
-        // 管理指令：按 (bus + can_rx_id) 派发到对应实例
         orb::DmMitAdminCmd c{};
         while (admin_sub.copy(c)) {
             DmMitMin* m = s_registry.FindByBusRx(c.bus, static_cast<uint16_t>(c.can_rx_id));
@@ -261,6 +373,8 @@ void DmMitMin::ConfigureGimbalCascadePidDefaults(CascadeAxis axis, CascadeFeedba
 
     alg::PidConfig angle_cfg{};
     alg::PidConfig omega_cfg{};
+
+    cascade_axis_ = axis;
 
     if (axis == CascadeAxis::Yaw) {
         if (fb == CascadeFeedback::Encoder) {
