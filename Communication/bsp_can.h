@@ -85,6 +85,12 @@ extern uint8_t g_can2_0x2ff_tx_data[];
 extern uint8_t g_can2_0x3fe_tx_data[];
 extern uint8_t g_can2_0x4fe_tx_data[];
 
+extern uint8_t g_can3_0x1ff_tx_data[];
+extern uint8_t g_can3_0x200_tx_data[];
+extern uint8_t g_can3_0x2ff_tx_data[];
+extern uint8_t g_can3_0x3fe_tx_data[];
+extern uint8_t g_can3_0x4fe_tx_data[];
+
 extern uint8_t g_can_supercap_tx_Data[];
 
 /* Exported function declarations ---------------------------------------------*/

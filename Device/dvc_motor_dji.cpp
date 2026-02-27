@@ -12,7 +12,6 @@
 
 #include "dvc_motor_dji.h"
 #include "arm_math.h"
-#include "alg_math.h"
 /* Private macros ------------------------------------------------------------*/
 
 /* Private types -------------------------------------------------------------*/
@@ -232,6 +231,100 @@ uint8_t *allocate_tx_data(
             }
         }
     }
+    else if (hcan == &hfdcan3)
+    {
+        switch (can_id)
+        {
+            case (MOTOR_DJI_ID_0x201):
+            {
+                tmp_tx_data_ptr = &(g_can3_0x200_tx_data[0]);
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x202):
+            {
+                tmp_tx_data_ptr = &(g_can3_0x200_tx_data[2]);
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x203):
+            {
+                tmp_tx_data_ptr = &(g_can3_0x200_tx_data[4]);
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x204):
+            {
+                tmp_tx_data_ptr = &(g_can3_0x200_tx_data[6]);
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x205):
+            {
+                if (dji_motor_driver_version == MOTOR_DJI_GM6020_DRIVER_VERSION_DEFAULT)
+                {
+                    tmp_tx_data_ptr = &(g_can3_0x1ff_tx_data[0]);
+                }
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x206):
+            {
+                if (dji_motor_driver_version == MOTOR_DJI_GM6020_DRIVER_VERSION_DEFAULT)
+                {
+                    tmp_tx_data_ptr = &(g_can3_0x1ff_tx_data[2]);
+                }
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x207):
+            {
+                if (dji_motor_driver_version == MOTOR_DJI_GM6020_DRIVER_VERSION_DEFAULT)
+                {
+                    tmp_tx_data_ptr = &(g_can3_0x1ff_tx_data[4]);
+                }
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x208):
+            {
+                if (dji_motor_driver_version == MOTOR_DJI_GM6020_DRIVER_VERSION_DEFAULT)
+                {
+                    tmp_tx_data_ptr = &(g_can3_0x1ff_tx_data[6]);
+                }
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x209):
+            {
+                if (dji_motor_driver_version == MOTOR_DJI_GM6020_DRIVER_VERSION_DEFAULT)
+                {
+                    tmp_tx_data_ptr = &(g_can3_0x2ff_tx_data[0]);
+                }
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x20A):
+            {
+                if (dji_motor_driver_version == MOTOR_DJI_GM6020_DRIVER_VERSION_DEFAULT)
+                {
+                    tmp_tx_data_ptr = &(g_can3_0x2ff_tx_data[2]);
+                }
+
+                break;
+            }
+            case (MOTOR_DJI_ID_0x20B):
+            {
+                if (dji_motor_driver_version == MOTOR_DJI_GM6020_DRIVER_VERSION_DEFAULT)
+                {
+                    tmp_tx_data_ptr = &(g_can3_0x2ff_tx_data[4]);
+                }
+
+                break;
+            }
+        }
+    }
+
     return (tmp_tx_data_ptr);
 }
 
@@ -258,6 +351,10 @@ void MotorDjiC610::Init(
     else if (hcan->Instance == FDCAN2)
     {
         can_manage_object_ = &g_can2_manage_object;
+    }
+    else if (hcan->Instance == FDCAN3)
+    {
+        can_manage_object_ = &g_can3_manage_object;
     }
     can_rx_id_ = can_rx_id;
     motor_dji_control_method_ = motor_dji_control_method;
@@ -309,10 +406,15 @@ void MotorDjiC610::DataProcess()
     int16_t tmp_omega, tmp_current;
     MotorDjiCanRxData *tmp_buffer = (MotorDjiCanRxData *) can_manage_object_->rx_buffer.data;
 
-    // 处理大小端
-    math_endian_reverse_16((void *) &tmp_buffer->encoder_reverse, (void *) &tmp_encoder);
-    math_endian_reverse_16((void *) &tmp_buffer->omega_reverse, (void *) &tmp_omega);
-    math_endian_reverse_16((void *) &tmp_buffer->current_reverse, (void *) &tmp_current);
+    // 处理大小端（就地翻转，避免重载匹配问题）
+    math_endian_reverse_16((void*)&tmp_buffer->encoder_reverse);
+    tmp_encoder = tmp_buffer->encoder_reverse;
+
+    math_endian_reverse_16((void*)&tmp_buffer->omega_reverse);
+    tmp_omega = tmp_buffer->omega_reverse;
+
+    math_endian_reverse_16((void*)&tmp_buffer->current_reverse);
+    tmp_current = tmp_buffer->current_reverse;
 
     // 计算圈数与总编码器值
     delta_encoder = tmp_encoder - rx_data_.pre_encoder;
@@ -352,27 +454,15 @@ void MotorDjiC610::PidCalculate()
     }
     case (MOTOR_DJI_CONTROL_METHOD_OMEGA):
     {
-        pid_omega_.SetTarget(target_omega_ + feedforward_omega_);
-        pid_omega_.SetNow(rx_data_.now_omega);
-        pid_omega_.CalculatePeriodElapsedCallback();
-
-        target_current_ = pid_omega_.GetOut();
+        target_current_ = pid_omega_.update(target_omega_ + feedforward_omega_, rx_data_.now_omega);
 
         break;
     }
     case (MOTOR_DJI_CONTROL_METHOD_ANGLE):
     {
-        pid_angle_.SetTarget(target_angle_);
-        pid_angle_.SetNow(rx_data_.now_angle);
-        pid_angle_.CalculatePeriodElapsedCallback();
+        target_omega_ = pid_angle_.update(target_angle_, rx_data_.now_angle);
 
-        target_omega_ = pid_angle_.GetOut();
-
-        pid_omega_.SetTarget(target_omega_ + feedforward_omega_);
-        pid_omega_.SetNow(rx_data_.now_omega);
-        pid_omega_.CalculatePeriodElapsedCallback();
-
-        target_current_ = pid_omega_.GetOut();
+        target_current_ = pid_omega_.update(target_omega_ + feedforward_omega_, rx_data_.now_omega);
 
         break;
     }
@@ -421,6 +511,10 @@ void MotorDjiC620::Init(
     {
         can_manage_object_ = &g_can2_manage_object;
     }
+    else if (hcan->Instance == FDCAN3)
+    {
+        can_manage_object_ = &g_can3_manage_object;
+    }
     can_rx_id_ = can_rx_id;
     motor_dji_control_method_ = motor_dji_control_method;
     power_limit_status_ = power_limit_status;
@@ -454,20 +548,26 @@ void MotorDjiC620::AlivePeriodElapsedCallback()
         // 电机断开连接
         motor_dji_status_ = MOTOR_DJI_STATUS_DISABLE;
         motor_dji_control_method_ = MOTOR_DJI_CONTROL_METHOD_CURRENT;
-        pid_angle_.SetIntegralError(0.0f);
-        pid_omega_.SetIntegralError(0.0f);
+
+        // 清空PID运行状态，避免重连后积分/微分历史导致突跳
+        pid_angle_.reset();
+        pid_omega_.reset();
+
         target_current_ = 0.0f;
+        feedforward_current_ = 0.0f;
+        feedforward_omega_ = 0.0f;
     }
     else
     {
         // 电机保持连接
         motor_dji_status_ = MOTOR_DJI_STATUS_ENABLE;
     }
+
     pre_flag_ = flag_;
 }
 
 /**
- * @brief 中断计算回调函数, 计算周期取决于电机反馈周期
+ * @brief TIM定时器中断计算回调函数, 计算周期取决于电机反馈周期
  *
  */
 void MotorDjiC620::CalculatePeriodElapsedCallback()
@@ -528,10 +628,15 @@ void MotorDjiC620::DataProcess()
     int16_t tmp_omega, tmp_current;
     MotorDjiCanRxData *tmp_buffer = (MotorDjiCanRxData *) can_manage_object_->rx_buffer.data;
 
-    // 处理大小端
-    math_endian_reverse_16((void *) &tmp_buffer->encoder_reverse, (void *) &tmp_encoder);
-    math_endian_reverse_16((void *) &tmp_buffer->omega_reverse, (void *) &tmp_omega);
-    math_endian_reverse_16((void *) &tmp_buffer->current_reverse, (void *) &tmp_current);
+    // 处理大小端（就地翻转，避免重载匹配问题）
+    math_endian_reverse_16((void*)&tmp_buffer->encoder_reverse);
+    tmp_encoder = tmp_buffer->encoder_reverse;
+
+    math_endian_reverse_16((void*)&tmp_buffer->omega_reverse);
+    tmp_omega = tmp_buffer->omega_reverse;
+
+    math_endian_reverse_16((void*)&tmp_buffer->current_reverse);
+    tmp_current = tmp_buffer->current_reverse;
 
     // 计算圈数与总编码器值
     delta_encoder = tmp_encoder - rx_data_.pre_encoder;
@@ -579,27 +684,15 @@ void MotorDjiC620::PidCalculate()
     }
     case (MOTOR_DJI_CONTROL_METHOD_OMEGA):
     {
-        pid_omega_.SetTarget(target_omega_ + feedforward_omega_);
-        pid_omega_.SetNow(rx_data_.now_omega);
-        pid_omega_.CalculatePeriodElapsedCallback();
-
-        target_current_ = pid_omega_.GetOut();
+        target_current_ = pid_omega_.update(target_omega_ + feedforward_omega_, rx_data_.now_omega);
 
         break;
     }
     case (MOTOR_DJI_CONTROL_METHOD_ANGLE):
     {
-        pid_angle_.SetTarget(target_angle_);
-        pid_angle_.SetNow(rx_data_.now_angle);
-        pid_angle_.CalculatePeriodElapsedCallback();
+        target_omega_ = pid_angle_.update(target_angle_, rx_data_.now_angle);
 
-        target_omega_ = pid_angle_.GetOut();
-
-        pid_omega_.SetTarget(target_omega_ + feedforward_omega_);
-        pid_omega_.SetNow(rx_data_.now_omega);
-        pid_omega_.CalculatePeriodElapsedCallback();
-
-        target_current_ = pid_omega_.GetOut();
+        target_current_ = pid_omega_.update(target_omega_ + feedforward_omega_, rx_data_.now_omega);
 
         break;
     }

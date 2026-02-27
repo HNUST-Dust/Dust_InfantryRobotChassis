@@ -34,6 +34,12 @@ uint8_t g_can2_0x2ff_tx_data[8];
 uint8_t g_can2_0x3fe_tx_data[8];
 uint8_t g_can2_0x4fe_tx_data[8];
 
+uint8_t g_can3_0x1ff_tx_data[8];
+uint8_t g_can3_0x200_tx_data[8];
+uint8_t g_can3_0x2ff_tx_data[8];
+uint8_t g_can3_0x3fe_tx_data[8];
+uint8_t g_can3_0x4fe_tx_data[8];
+
 uint8_t g_can_supercap_tx_data[8];
 
 /* Private function declarations ---------------------------------------------*/

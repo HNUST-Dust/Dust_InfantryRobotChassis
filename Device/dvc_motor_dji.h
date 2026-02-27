@@ -11,7 +11,7 @@
 #ifndef MODULES_MOTOR_DJI_H_
 #define MODULES_MOTOR_DJI_H_
 
-#include "alg_pid.h"
+#include "../Algorithm/control/alg_pid.h"
 #include "bsp_can.h"
 
 /**
@@ -109,9 +109,9 @@ class MotorDjiC620
 {
 public:
     // PID角度环控制
-    Pid pid_angle_;
+    alg::Pid pid_angle_;
     // PID角速度环控制
-    Pid pid_omega_;
+    alg::Pid pid_omega_;
 
     void Init(
         FDCAN_HandleTypeDef *hcan,
@@ -228,7 +228,7 @@ protected:
     // 电机状态
     MotorDjiStatus motor_dji_status_ = MOTOR_DJI_STATUS_DISABLE;
     // 电机对外接口信息
-    MotorDjiRxData rx_data_ = {0.f,0.f,0.f,0.f,0.f,0,0,0};
+    MotorDjiRxData rx_data_;
     // 下一时刻的功率估计值, W
     float power_estimate_;
 
@@ -266,9 +266,9 @@ class MotorDjiC610
 {
 public:
     // PID角度环控制
-    Pid pid_angle_;
+    alg::Pid pid_angle_;
     // PID角速度环控制
-    Pid pid_omega_;
+    alg::Pid pid_omega_;
 
     void Init(
         FDCAN_HandleTypeDef *hcan,
@@ -317,6 +317,8 @@ public:
 
     void CanRxCpltCallback(uint8_t *rx_data);
 
+    void AlivePeriodElapsedCallback();
+
     void CalculatePeriodElapsedCallback();
 
     void Output(); // 暂时开放接口用于调试
@@ -330,7 +332,7 @@ protected:
     // 发送缓存区
     uint8_t *tx_data_;
     // 减速比, 默认带减速箱
-    float gearbox_rate_;
+    float gearbox_rate_ = 36.0f;
     // 最大电流
     float current_max_;
 

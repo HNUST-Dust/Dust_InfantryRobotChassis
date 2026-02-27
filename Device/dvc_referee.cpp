@@ -59,7 +59,7 @@ void Referee::Task()
         taskEXIT_CRITICAL();
 
         if (do_update) {
-            FreshDynamicUI();
+            // FreshDynamicUI();
         }
 
         // ui_booster_off_now_strings->color = 0;
