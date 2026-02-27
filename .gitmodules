@@ -1,0 +1,3 @@
+[submodule "Algorithm"]
+	path = Algorithm
+	url = https://github.com/NoneOfEver/Algorithm.git
