@@ -1,3 +1,6 @@
 [submodule "Algorithm"]
 	path = Algorithm
 	url = https://github.com/NoneOfEver/Algorithm.git
+[submodule "daemon_supervisor"]
+	path = daemon_supervisor
+	url = https://github.com/NoneOfEver/daemon_supervisor.git
