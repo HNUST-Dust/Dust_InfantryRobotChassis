@@ -272,8 +272,8 @@ void Gimbal::Output()
     // motor_yaw_.SetControlOmega(target_yaw_omega_ + yaw_omega_feedforword_);
     motor_yaw_.SetControlTorque(yaw_omega_pid_.GetOut());
     motor_pitch_.SetControlTorque(pitch_omega_pid_.GetOut());
-    motor_yaw_.Output();
-    motor_pitch_.Output();
+    motor_yaw_.SendPeriodElapsedCallback();
+    motor_pitch_.SendPeriodElapsedCallback();
 }
 
 /**
@@ -309,17 +309,22 @@ void Gimbal::TaskEntry(void *argument)
 
 void Gimbal::Task()
 {
-    uint8_t first_run_flag = 0; // 用于标记是否是第一次运行
+    uint32_t loop_count = 0; // 循环计数，用于奇偶次分配 Alive 回调
   
     for (;;)
     {
-        if(first_run_flag == 0){ // 第一次运行到这里，pre_pitch_angle未初始化
-            first_run_flag = 1;
+        if(loop_count == 0){ // 第一次运行到这里，pre_pitch_angle未初始化
             pre_pitch_angle_ = target_pitch_angle_;
         }
         SelfResolution();
+        if (loop_count & 1) {
+            motor_yaw_.AlivePeriodElapsedCallback();
+        } else {
+            motor_pitch_.AlivePeriodElapsedCallback();
+        }
         Output();
-        osDelay(pdMS_TO_TICKS(1)); // 1khz电机控制频率
         pre_pitch_angle_ = target_pitch_angle_;
+        loop_count++;
+        osDelay(pdMS_TO_TICKS(1)); // 1khz电机控制频率
     }
 }
