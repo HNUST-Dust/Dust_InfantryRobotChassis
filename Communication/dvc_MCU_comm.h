@@ -33,6 +33,7 @@ struct McuCommData
     uint8_t         supercap         = SUPERCAP_STATUS_DISABLE; // 超级电容：充电、放电
     uint8_t         auto_aim_flag    = 0;                       // 自瞄标志
     uint8_t         reset_zero       = 0;                       // 云台设置零点
+    uint8_t         booster_status   = 0;                       // 发射机构状态
 };
 constexpr uint8_t REMOTE_CONTROL_ID = 0xAB;
 

@@ -34,12 +34,14 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
     if (msg_id == kStatusDataId && payload_len >= sizeof(StatusData)) {
         UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
         std::memcpy(&status_, payload, sizeof(StatusData));
-        ui_update_requested_ = true; 
         taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
     } else if (msg_id == kShootDataId && payload_len >= sizeof(ShootData)) {
         UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
         std::memcpy(&shoot_, payload, sizeof(ShootData));
-        ui_update_requested_ = true;
+        taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
+    } else if (msg_id == kGameStatusId && payload_len >= sizeof(GameStatus)) {
+        UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+        std::memcpy(&game_status_, payload, sizeof(GameStatus));
         taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
     }
 }
@@ -47,25 +49,36 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
 void Referee::Task()
 {
     ui_init_booster_off();
-    for(;;)
-    {
-        // 任务上下文检查 ISR 设置的标志并在安全上下文调用 UI 更新
-        bool do_update = false;
-        taskENTER_CRITICAL();
-        if (ui_update_requested_) {
-            ui_update_requested_ = false;
-            do_update = true;
-        }
-        taskEXIT_CRITICAL();
 
-        if (do_update) {
-            // FreshDynamicUI();
-        }
-
-        // ui_booster_off_now_strings->color = 0;
+    for (;;) {
+        FreshDynamicUI();
         ui_update_booster_off();
-        // 内部发送函数后已有10ms延时
-        osDelay(pdMS_TO_TICKS(10));
+
+        osDelay(pdMS_TO_TICKS(50));
+    }
+}
+
+void Referee::FreshDynamicUI()
+{
+    // 从裁判系统状态包同步本机器人 ID
+    if (status_.id != 0) {
+        ui_self_id = status_.id;
+        // ui_self_id = 1; // 目前先写死为1，后续根据实际情况修改
+
     }
 
+    // booster 状态文字：booster_on / booster_off
+    const char* booster_str = booster_status_ ? "booster_on" : "booster_off";
+    strcpy(ui_booster_off_dynamic_group_booster_off_text->string, booster_str);
+    ui_booster_off_dynamic_group_booster_off_text->str_length = strlen(booster_str);
+    ui_booster_off_dynamic_group_booster_off_text->color = booster_status_ ? 2 : 5;
+
+    // 小陀螺状态文字：spin_on / spin_off
+    const char* spin_str = spin_status_ ? "spin_on" : "spin_off";
+    strcpy(ui_booster_off_dynamic__group_spin_off_text->string, spin_str);
+    ui_booster_off_dynamic__group_spin_off_text->str_length = strlen(spin_str);
+    ui_booster_off_dynamic__group_spin_off_text->color = spin_status_ ? 2 : 5;
+
+    // 超级电容状态文字颜色
+    ui_booster_off_dynamic__group_cap_charge_text->color = supercap_status_ ? 2 : 5;
 }

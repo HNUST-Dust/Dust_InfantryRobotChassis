@@ -20,9 +20,7 @@ ui_5_frame_t _ui_5_frame;
 ui_7_frame_t _ui_7_frame;
 
 void print_message(const uint8_t *message, const int length) {
-
     uart_send_data(&huart1,(uint8_t*)message,(uint16_t)length);
-    osDelay(pdMS_TO_TICKS(10));
 }
 
 const unsigned char CRC8_TAB[256] = {

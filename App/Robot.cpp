@@ -12,6 +12,7 @@
 
 // app
 #include "app_chassis.h"
+#include "dvc_referee.h"
 #include "math/alg_math.h"
 // module
 #include "dvc_MCU_comm.h"
@@ -144,16 +145,22 @@ void Robot::Task()
                 gimbal_.SetGimbalYawControlType(GIMBAL_CONTROL_TYPE_OMEGA);
                 gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED);
                 gimbal_.SetTargetYawOmega((mcu_comm_data_local.yaw - 127.0f)*YAW_SPEED_SENSITIVITY); //补偿速度可能符号错了
+
+                referee_.spin_status_ = true;
             break;
             case CHASSIS_SPIN_DISABLE:
                 spin_speed = 0;
                 chassis_.SetTargetVelocityRotation(0.0f);
                 gimbal_.SetGimbalYawControlType(GIMBAL_CONTROL_TYPE_ANGLE);
                 gimbal_.SetYawOmegaFeedforword(0.0f);
+
+                referee_.spin_status_ = false;
             break;
             case CHASSIS_SPIN_COUNTER_CLOCK_WISE: // 疯车保护
                 chassis_.Exit();
                 gimbal_.Exit();
+
+                referee_.spin_status_ = false;
             break;
             default:
             // do nothing
@@ -192,14 +199,27 @@ void Robot::Task()
         /********************** 超级电容 ***********************/   
         if(mcu_comm_data_local.supercap == 0){
             supercap_.SetChargeStatus(SUPERCAP_STATUS_CHARGE);
+
+            referee_.supercap_status_ = false;
         }else if(mcu_comm_data_local.supercap == 1){
             supercap_.SetChargeStatus(SUPERCAP_STATUS_DISCHARGE);
+
+            referee_.supercap_status_ = true;
         }else{
             supercap_.SetChargeStatus(SUPERCAP_STATUS_CHARGE);
+
+            referee_.supercap_status_ = false;
         }
         supercap_.SetPowerLimitMax(100);
         supercap_.SetChargePower(50);
  
+        /********************** 上板发来的状态 ***********************/
+        if(mcu_comm_data_local.booster_status == 1){
+            referee_.booster_status_ = true;
+        }else{
+            referee_.booster_status_ = false;
+        }
+        
         /********************** 调试信息 ***********************/   
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         // debug_tools_.VofaSendFloat(-mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG);

@@ -2,6 +2,8 @@
 #include "stdlib.h"
 #include "stdint.h"
 #include "ui.h"
+#include <cstdint>
+
 
 class Referee{
 public:
@@ -21,12 +23,15 @@ public:
     uint8_t GetLaunchingFrequency() const { return shoot_.launching_frequency; }
     float GetInitialSpeed() const { return shoot_.initial_speed; }
 
+    bool spin_status_ = false; // 小陀螺状态
+    bool booster_status_ = false; // 摩擦轮状态
+    bool supercap_status_ = false; // 超级电容状态
 private:
     static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
 
     // ...protocol definitions kept as private nested types to avoid对外暴露完整协议布局...
     struct StatusData {
-        uint8_t id;                                     // 本机器人ID
+        uint8_t id = 3;                                 // 本机器人ID
         uint8_t level;                                  // 机器人等级
         uint16_t current_hp;                            // 当前血量
         uint16_t max_hp;                                // 最大血量
@@ -58,9 +63,23 @@ private:
     } __attribute__((packed));
     static constexpr uint16_t kShootDataId = 0x0207;
 
+    enum class GameType : uint8_t {
+        RMUC = 0x1,
+        RMUL_Engineer = 0x2,
+        IRCA = 0x3,
+        RMUL_3V3 = 0x4,
+        RMUL_Infantry = 0x5,
+    };
+    struct GameStatus {
+        GameType game_type : 4;            // 比赛类型
+        uint8_t game_progress : 4;        // 比赛进程
+        uint16_t stage_remain_time;   // 当前阶段剩余时间（单位：s）
+        uint64_t sync_timestamp;        // 同步时间戳（单位：ms）
+    } __attribute__((packed));
+    static constexpr uint16_t kGameStatusId = 0x0001;
+
     // 保存解析后的数据（私有）
     StatusData status_{};
     ShootData shoot_{};
-    // ISR 中只设置该标志，Task 中处理实际的 UI 更新
-    volatile bool ui_update_requested_ = false;
+    GameStatus game_status_{};
 };

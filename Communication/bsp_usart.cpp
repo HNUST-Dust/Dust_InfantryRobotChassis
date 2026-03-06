@@ -157,7 +157,25 @@ void uart_reinit(UART_HandleTypeDef *huart)
  */
 uint8_t uart_send_data(UART_HandleTypeDef *huart, uint8_t *data, uint16_t length)
 {
-    return (HAL_UART_Transmit_DMA(huart, data, length));
+    UartManageObject *obj = nullptr;
+    if      (huart->Instance == USART1) obj = &g_uart1_manage_object;
+    else if (huart->Instance == USART2) obj = &g_uart2_manage_object;
+    else if (huart->Instance == USART3) obj = &g_uart3_manage_object;
+    else if (huart->Instance == UART4)  obj = &g_uart4_manage_object;
+    else if (huart->Instance == UART5)  obj = &g_uart5_manage_object;
+    else if (huart->Instance == USART6) obj = &g_uart6_manage_object;
+    else if (huart->Instance == UART7)  obj = &g_uart7_manage_object;
+    else if (huart->Instance == UART8)  obj = &g_uart8_manage_object;
+
+    if (obj != nullptr) {
+        while (!obj->tx_cplt_flag) {
+            if (HAL_GetTick() >= deadline) {
+                return HAL_TIMEOUT;
+            }
+        }
+        obj->tx_cplt_flag = false;
+    }
+    return HAL_UART_Transmit_DMA(huart, data, length);
 }
 
 /**
