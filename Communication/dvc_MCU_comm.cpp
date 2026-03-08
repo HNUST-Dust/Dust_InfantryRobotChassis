@@ -107,6 +107,8 @@ void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {
      mcu_comm_data_.supercap             = rx_data[6];
      mcu_comm_data_.auto_aim_flag        = rx_data[7];
      mcu_comm_data_.reset_zero           = rx_data[8];
+     mcu_comm_data_.booster_status       = rx_data[9];
+     mcu_comm_data_.fast_run             = rx_data[10];
 }
 
 void McuComm::CanAutoAimInfoRxCpltCallback(uint8_t* rx_data) {

@@ -34,6 +34,7 @@ struct McuCommData
     uint8_t         auto_aim_flag    = 0;                       // 自瞄标志
     uint8_t         reset_zero       = 0;                       // 云台设置零点
     uint8_t         booster_status   = 0;                       // 发射机构状态
+    uint8_t         fast_run         = 0;                       // 快跑标志位 
 };
 constexpr uint8_t REMOTE_CONTROL_ID = 0xAB;
 
@@ -77,6 +78,9 @@ public:
             127,
             127,
             CHASSIS_SPIN_DISABLE,
+            0,
+            0,
+            0,
             0,
             0,
     };

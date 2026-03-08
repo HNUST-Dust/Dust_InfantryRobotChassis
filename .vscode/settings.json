@@ -5,5 +5,5 @@
         "cstdint": "cpp",
         "cmath": "cpp"
     },
-    "cortex-debug.variableUseNaturalFormat": false
+    "cortex-debug.variableUseNaturalFormat": true
 }

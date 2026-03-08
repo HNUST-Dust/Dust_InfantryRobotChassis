@@ -20,7 +20,64 @@ ui_5_frame_t _ui_5_frame;
 ui_7_frame_t _ui_7_frame;
 
 void print_message(const uint8_t *message, const int length) {
-    uart_send_data(&huart1,(uint8_t*)message,(uint16_t)length);
+    // 等待 DMA 空闲
+    while (!g_uart1_manage_object.tx_cplt_flag);
+    memcpy(g_uart1_manage_object.tx_buffer, message, length);
+    g_uart1_manage_object.tx_cplt_flag = false;
+    HAL_UART_Transmit_DMA(
+        g_uart1_manage_object.uart_handler, 
+        g_uart1_manage_object.tx_buffer, 
+        length
+    );
+}
+
+static inline uint16_t clamp_u16_len_to_buffer(int byte_len)
+{
+    if (byte_len < 0) {
+        return 0;
+    }
+    if (byte_len > (int)sizeof(g_uart1_manage_object.tx_buffer)) {
+        return (uint16_t)sizeof(g_uart1_manage_object.tx_buffer);
+    }
+    return (uint16_t)byte_len;
+}
+
+void print_message_u16_be(const uint16_t* words, int word_count)
+{
+    if (words == nullptr || word_count <= 0) {
+        return;
+    }
+
+    const uint16_t byte_len = clamp_u16_len_to_buffer(word_count * 2);
+    const int max_words = byte_len / 2;
+
+    while (!g_uart1_manage_object.tx_cplt_flag);
+    for (int i = 0; i < max_words; i++) {
+        const uint16_t w = words[i];
+        g_uart1_manage_object.tx_buffer[2 * i]     = (uint8_t)((w >> 8) & 0xFF);
+        g_uart1_manage_object.tx_buffer[2 * i + 1] = (uint8_t)(w & 0xFF);
+    }
+    g_uart1_manage_object.tx_cplt_flag = false;
+    HAL_UART_Transmit_DMA(g_uart1_manage_object.uart_handler, g_uart1_manage_object.tx_buffer, byte_len);
+}
+
+void print_message_u16_le(const uint16_t* words, int word_count)
+{
+    if (words == nullptr || word_count <= 0) {
+        return;
+    }
+
+    const uint16_t byte_len = clamp_u16_len_to_buffer(word_count * 2);
+    const int max_words = byte_len / 2;
+
+    while (!g_uart1_manage_object.tx_cplt_flag);
+    for (int i = 0; i < max_words; i++) {
+        const uint16_t w = words[i];
+        g_uart1_manage_object.tx_buffer[2 * i]     = (uint8_t)(w & 0xFF);
+        g_uart1_manage_object.tx_buffer[2 * i + 1] = (uint8_t)((w >> 8) & 0xFF);
+    }
+    g_uart1_manage_object.tx_cplt_flag = false;
+    HAL_UART_Transmit_DMA(g_uart1_manage_object.uart_handler, g_uart1_manage_object.tx_buffer, byte_len);
 }
 
 const unsigned char CRC8_TAB[256] = {

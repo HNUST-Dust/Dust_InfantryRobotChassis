@@ -2,8 +2,10 @@
 #include "cmsis_os.h"
 #include "cmsis_os2.h"
 #include "projdefs.h"
+#include "ui_interface.h"
 #include <cstdint>
 #include <cstring>
+#include "crc.h"
 void Referee::Init()
 {
     static const osThreadAttr_t kRefereeTaskAttr = {
@@ -22,27 +24,63 @@ void Referee::TaskEntry(void *param)
 
 void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
 {
-    // 协议假定：前 2 字节为消息 ID（little-endian），后面为 payload
-    if (buffer == nullptr || length < 2) {
-        return;
-    }
+    RefereeUartData *tmp_buffer;
 
-    uint16_t msg_id = static_cast<uint16_t>(buffer[0]) | (static_cast<uint16_t>(buffer[1]) << 8);
-    uint8_t *payload = buffer + 2;
-    uint16_t payload_len = (length > 2) ? (length - 2) : 0;
+    for (int i = 0; i < length;)
+    {
+        tmp_buffer = (RefereeUartData *) &buffer[i];
 
-    if (msg_id == kStatusDataId && payload_len >= sizeof(StatusData)) {
-        UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-        std::memcpy(&status_, payload, sizeof(StatusData));
-        taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
-    } else if (msg_id == kShootDataId && payload_len >= sizeof(ShootData)) {
-        UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-        std::memcpy(&shoot_, payload, sizeof(ShootData));
-        taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
-    } else if (msg_id == kGameStatusId && payload_len >= sizeof(GameStatus)) {
-        UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-        std::memcpy(&game_status_, payload, sizeof(GameStatus));
-        taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
+        // 未通过头校验
+        if (tmp_buffer->frame_header != 0xA5)
+        {
+            i++;
+            continue;
+        }
+        // 未通过CRC8校验, 顺一位继续判断
+        // if (verify_crc8_check_sum((uint8_t *) tmp_buffer, 4) != tmp_buffer->crc_8)
+        // {
+        //     i++;
+        //     continue;
+        // }
+        // 未通过CRC16校验, 跨过当前包继续判断
+        // if (verify_crc16_check_sum((uint8_t *) tmp_buffer, 7 + tmp_buffer->data_length) != *(uint16_t *) ((uint32_t) tmp_buffer + 7 + tmp_buffer->data_length))
+        // {
+        //     i += 9 + tmp_buffer->data_length;
+        //     continue;
+        // }
+        // 通过校验但帧不够长
+        if (i + 7 + tmp_buffer->data_length + 2 > length)
+        {
+            break;
+        }
+        switch(tmp_buffer->referee_command_id)
+        {
+            case kStatusDataId:
+            {
+                UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+                std::memcpy(&status_, tmp_buffer->data, sizeof(StatusData));
+                taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
+                break;
+            }
+            case kShootDataId:
+            {
+                UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+                std::memcpy(&shoot_, tmp_buffer->data, sizeof(StatusData));
+                taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
+                break;
+            }
+            case kGameStatusId:
+            {
+                UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
+                std::memcpy(&game_status_, tmp_buffer->data, sizeof(ShootData));
+                taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
+                break;
+            }
+            default:
+                break;
+        }
+        // 缓冲区直接推移
+        i += 7 + tmp_buffer->data_length + 2;
     }
 }
 
@@ -51,10 +89,9 @@ void Referee::Task()
     ui_init_booster_off();
 
     for (;;) {
-        FreshDynamicUI();
-        ui_update_booster_off();
-
-        osDelay(pdMS_TO_TICKS(50));
+        // FreshDynamicUI();
+        // ui_update_booster_off();
+        osDelay(pdMS_TO_TICKS(500));
     }
 }
 
@@ -62,8 +99,8 @@ void Referee::FreshDynamicUI()
 {
     // 从裁判系统状态包同步本机器人 ID
     if (status_.id != 0) {
-        ui_self_id = status_.id;
-        // ui_self_id = 1; // 目前先写死为1，后续根据实际情况修改
+        // ui_self_id = status_.id;
+        ui_self_id = 3; // 目前先写死为1，后续根据实际情况修改
 
     }
 
