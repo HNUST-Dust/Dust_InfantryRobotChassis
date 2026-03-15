@@ -129,7 +129,7 @@ void Gimbal::Init()
     );
     // yaw轴速度环低通滤波器初始化
     yaw_omega_filter_.Init(15.0f,0.001f);
-    pitch_omega_filter_.Init(200.0f,0.001f);
+    pitch_omega_filter_.Init(20.0f,0.001f);
 
     motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,12.56637);
     motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
