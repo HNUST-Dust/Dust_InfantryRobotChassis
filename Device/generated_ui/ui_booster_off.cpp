@@ -62,7 +62,7 @@ void ui_init_booster_off() {
     ui_booster_off_dynamic_group_booster_off_text->layer = 1;
     ui_booster_off_dynamic_group_booster_off_text->color = 5;
     ui_booster_off_dynamic_group_booster_off_text->start_x = 120;
-    ui_booster_off_dynamic_group_booster_off_text->start_y = 260;
+    ui_booster_off_dynamic_group_booster_off_text->start_y = 540;//260
     ui_booster_off_dynamic_group_booster_off_text->width = 2;
     ui_booster_off_dynamic_group_booster_off_text->font_size = 20;
     ui_booster_off_dynamic_group_booster_off_text->str_length = 11;
@@ -73,7 +73,7 @@ void ui_init_booster_off() {
     ui_booster_off_dynamic__group_spin_off_text->layer = 1;
     ui_booster_off_dynamic__group_spin_off_text->color = 5;
     ui_booster_off_dynamic__group_spin_off_text->start_x = 120;
-    ui_booster_off_dynamic__group_spin_off_text->start_y = 306;
+    ui_booster_off_dynamic__group_spin_off_text->start_y = 590;//302
     ui_booster_off_dynamic__group_spin_off_text->width = 2;
     ui_booster_off_dynamic__group_spin_off_text->font_size = 20;
     ui_booster_off_dynamic__group_spin_off_text->str_length = 8;
@@ -84,7 +84,7 @@ void ui_init_booster_off() {
     ui_booster_off_dynamic__group_cap_charge_text->layer = 1;
     ui_booster_off_dynamic__group_cap_charge_text->color = 5;
     ui_booster_off_dynamic__group_cap_charge_text->start_x = 120;
-    ui_booster_off_dynamic__group_cap_charge_text->start_y = 352;
+    ui_booster_off_dynamic__group_cap_charge_text->start_y = 640;//352
     ui_booster_off_dynamic__group_cap_charge_text->width = 2;
     ui_booster_off_dynamic__group_cap_charge_text->font_size = 20;
     ui_booster_off_dynamic__group_cap_charge_text->str_length = 10;

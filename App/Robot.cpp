@@ -366,8 +366,8 @@ void Robot::Task()
 
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(bmi088_.yaw_rad);
-        // debug_tools_.VofaSendFloat(gimbal_.GetTargetYawOmega());
-        // debug_tools_.VofaSendFloat(gimbal_.GetNowYawOmega());
+        // debug_tools_.VofaSendFloat(gimbal_.GetTargetPitchOmega());
+        // debug_tools_.VofaSendFloat(gimbal_.GetNowPitchOmega());
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_omega_f);
 
         // 调试帧尾部

@@ -80,10 +80,10 @@ void Gimbal::Init()
 #ifdef PITCH_IMU_MODE
     //pitch轴角度环PID初始化
     pitch_angle_pid_.Init(
+        18.0f,
+        2.3f,
+        0.001f,
         20.0f,
-        1.8f,
-        0.02f,
-        1.0f,
         29.0f,
         29.0f,
         0.001f,
@@ -113,8 +113,8 @@ void Gimbal::Init()
     );
     //pitch轴速度环PID初始化
     pitch_omega_pid_.Init(
-        1.5f,
         0.7f,
+        1.2f,
         0.000f,
         3.0f,
         9.9f,
@@ -129,7 +129,7 @@ void Gimbal::Init()
     );
     // yaw轴速度环低通滤波器初始化
     yaw_omega_filter_.Init(15.0f,0.001f);
-    pitch_omega_filter_.Init(15.0f,0.001f);
+    pitch_omega_filter_.Init(200.0f,0.001f);
 
     motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,12.56637);
     motor_pitch_.Init(&hfdcan3, 0x11, 0x02);
