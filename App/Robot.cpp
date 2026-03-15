@@ -318,12 +318,12 @@ void Robot::Task()
         if(mcu_comm_data_local.auto_aim_flag == 1) {
             // if(fabs(mcu_comm_.mcu_autoaim_data_.pitch_angle) <0.3f){
             virtual_pitch_angle_ =  mcu_comm_.mcu_imu_data_.pitch_f
-                                    - mcu_comm_.mcu_autoaim_data_.pitch_angle * RAD_TO_DEG;
+                                    - mcu_comm_.mcu_autoaim_data_.pitch_angle;
             minipc_pitch_recive_filter_.Update(virtual_pitch_angle_);
             virtual_pitch_angle_ = minipc_pitch_recive_filter_.GetOutput();
 
             virtual_yaw_angle_ = mcu_comm_.mcu_imu_data_.yaw_total_angle_f
-                                    + (mcu_comm_.mcu_autoaim_data_.yaw_angle * RAD_TO_DEG);
+                                    + (mcu_comm_.mcu_autoaim_data_.yaw_angle);
             minipc_yaw_recive_filter_.Update(virtual_yaw_angle_);
             virtual_yaw_angle_ = minipc_yaw_recive_filter_.GetOutput();
    
