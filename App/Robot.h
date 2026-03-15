@@ -8,16 +8,17 @@
 #include "control/alg_pid.h"
 // module
 #include "dvc_MCU_comm.h"
+#include "bmi088.h"
 #include "supercap.h"
 #include "debug_tools.h"
 #include "dvc_referee.h"
 #include <stdint.h>
 
 #define YAW_SENSITIVITY                  0.00008F//0.00008
-#define YAW_SENSITIVITY_USED_IMU         0.00800F//0.00008
+#define YAW_SENSITIVITY_USED_IMU         0.00008F//0.00008
 #define YAW_SPEED_SENSITIVITY            0.05f
 #define PITCH_RANGE_MAX                  0.3f
-#define PITCH_RANGE_MAX_USE_IMU          15.0f
+#define PITCH_RANGE_MAX_USE_IMU          0.45f
 
 #define CHASSIS_SPEED_1V1                15.0f
 #define CHASSIS_SPIN_SPEED_1V1           35.0f
@@ -50,6 +51,8 @@ public:
     DebugTools debug_tools_;
     // 与上板的通讯服务
     McuComm mcu_comm_;
+    // 板载陀螺仪
+    Bmi088 bmi088_;
     // 底盘跟随控制PID
     alg::Pid chassis_follow_pid_;
     // 底盘
@@ -87,6 +90,11 @@ protected:
     RobotGyroscopeType chassis_gyroscope_mode_status_ = ROBOT_GYROSCOPE_TYPE_DISABLE;
     // 底盘跟随模式是否使能
     bool chassis_follow_mode_status_ = true;
+    // 记录上一次云台上电状态，用于 false->true 上升沿检测
+    bool last_gimbal_power_on_ = false;
+    // 上电沿对齐后，等待角度收敛再执行一次 reset_zero 同款流程
+    bool gimbal_wait_align_then_reset_zero_ = false;
+    uint16_t gimbal_align_stable_ticks_ = 0;
     // 机器人等级
     int32_t robot_level_ = 1;
     static void TaskEntry(void *param);

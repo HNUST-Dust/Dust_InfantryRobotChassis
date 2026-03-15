@@ -314,6 +314,8 @@ protected:
     // 电机对外接口信息
     MotorDmRxDataNormal rx_data_;
 
+    bool rx_inited_ = false;
+
     // 写变量
 
     // 读写变量

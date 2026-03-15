@@ -182,7 +182,10 @@ public:
     {
         imu_pitch_omega_ = imu_pitch_omega;
     }
-
+    inline void SetPowerOnFlag(bool flag)
+    {
+        power_on_flag_ = flag;
+    }
 protected:
     DebugTools debug_tools_;
 
@@ -258,6 +261,9 @@ protected:
     float imu_pitch_angle_ = 0.0f;
     // pitch imu 角速度
     float imu_pitch_omega_ = 0.0f;
+
+    bool power_on_flag_ = false;
+    bool first_power_on_flag_ = false;
 
     void SelfResolution();
     void MotorNearestTransposition();

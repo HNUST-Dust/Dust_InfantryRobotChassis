@@ -376,6 +376,21 @@ void MotorDmNormal::DataProcess()
 
     rx_data_.control_status = static_cast<MotorDmControlStatusNormal>(tmp_buffer->control_status_enum);
 
+    // 首帧：只初始化展开状态，避免 pre_encoder=0 导致误判跨圈
+    if (!rx_inited_) {
+        rx_inited_ = true;
+        rx_data_.pre_encoder = tmp_encoder;
+        rx_data_.total_round = 0;
+        rx_data_.total_encoder = static_cast<int32_t>(tmp_encoder) - ((1 << 15) - 1);
+
+        rx_data_.now_angle_noncumulative = ((float)((tmp_encoder / 65535.0f) * (angle_max_ * 2.0f)) - angle_max_);
+        rx_data_.now_angle = (float)(rx_data_.total_encoder) / (float)((1 << 16) - 1) * angle_max_ * 2.0f;
+        rx_data_.now_omega = math_int_to_float(tmp_omega, 0x7ff, (1 << 12) - 1, 0, omega_max_);
+        rx_data_.now_torque = math_int_to_float(tmp_torque, 0x7ff, (1 << 12) - 1, 0, torque_max_);
+        rx_data_.now_mos_temperature = tmp_buffer->mos_temperature + CELSIUS_TO_KELVIN;
+        rx_data_.now_rotor_temperature = tmp_buffer->rotor_temperature + CELSIUS_TO_KELVIN;
+        return;
+    }
     // 计算圈数与总角度值
     delta_encoder = tmp_encoder - rx_data_.pre_encoder;
     if (delta_encoder < -(1 << 15))
