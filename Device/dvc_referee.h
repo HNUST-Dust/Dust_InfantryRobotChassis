@@ -129,5 +129,8 @@ public:
 private:
     static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
 
+    volatile bool has_received_rx_msg_ = false;
+    bool ui_inited_ = false;
+
 
 };

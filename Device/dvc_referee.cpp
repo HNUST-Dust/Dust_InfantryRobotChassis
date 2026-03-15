@@ -24,6 +24,7 @@ void Referee::TaskEntry(void *param)
 
 void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
 {
+
     RefereeUartData *tmp_buffer;
 
     for (int i = 0; i < length;)
@@ -59,20 +60,23 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
             {
                 UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
                 std::memcpy(&status_, tmp_buffer->data, sizeof(StatusData));
+                
+                has_received_rx_msg_ = true;
+
                 taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
                 break;
             }
             case kShootDataId:
             {
                 UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-                std::memcpy(&shoot_, tmp_buffer->data, sizeof(StatusData));
+                std::memcpy(&shoot_, tmp_buffer->data, sizeof(ShootData));
                 taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
                 break;
             }
             case kGameStatusId:
             {
                 UBaseType_t uxSavedInterruptStatus = taskENTER_CRITICAL_FROM_ISR();
-                std::memcpy(&game_status_, tmp_buffer->data, sizeof(ShootData));
+                std::memcpy(&game_status_, tmp_buffer->data, sizeof(GameStatus));
                 taskEXIT_CRITICAL_FROM_ISR(uxSavedInterruptStatus);
                 break;
             }
@@ -86,11 +90,20 @@ void Referee::RxCpltCallback(uint8_t *buffer, uint16_t length)
 
 void Referee::Task()
 {
-    ui_init_booster_off();
+    for (;;)
+    {
+        FreshDynamicUI();
 
-    for (;;) {
-        // FreshDynamicUI();
-        // ui_update_booster_off();
+        if (!ui_inited_ && has_received_rx_msg_)
+        {
+            ui_init_booster_off();
+            ui_inited_ = true;
+        }
+
+        if (ui_inited_)
+        {
+            ui_update_booster_off();
+        }
         osDelay(pdMS_TO_TICKS(500));
     }
 }
@@ -99,9 +112,8 @@ void Referee::FreshDynamicUI()
 {
     // 从裁判系统状态包同步本机器人 ID
     if (status_.id != 0) {
-        // ui_self_id = status_.id;
-        ui_self_id = 3; // 目前先写死为1，后续根据实际情况修改
-
+        ui_self_id = status_.id;
+        // ui_self_id = 3; // 目前先写死为1，后续根据实际情况修改
     }
 
     // booster 状态文字：booster_on / booster_off
