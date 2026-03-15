@@ -123,7 +123,7 @@ public:
     bool supercap_status_ = false; // 超级电容状态
 
     // 保存解析后的数据（私有）
-    StatusData status_{};
+    StatusData status_{0};
     ShootData shoot_{};
     GameStatus game_status_{};
 private:

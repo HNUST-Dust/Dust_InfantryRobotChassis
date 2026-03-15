@@ -43,6 +43,7 @@ function(dust_configure_options options_target)
         ${CMAKE_SOURCE_DIR}/App
         ${CMAKE_SOURCE_DIR}/Algorithm
         ${CMAKE_SOURCE_DIR}/Device
+        ${CMAKE_SOURCE_DIR}/Platform
         ${CMAKE_SOURCE_DIR}/Device/generated_ui
         ${CMAKE_SOURCE_DIR}/daemon_supervisor
         ${CMAKE_SOURCE_DIR}/Communication

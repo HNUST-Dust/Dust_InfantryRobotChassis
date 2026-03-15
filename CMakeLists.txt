@@ -6,10 +6,12 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_C_COMPILER arm-none-eabi-gcc)
 set(CMAKE_CXX_COMPILER arm-none-eabi-g++)
 set(CMAKE_ASM_COMPILER  arm-none-eabi-gcc)
-set(CMAKE_AR arm-none-eabi-ar)
+
 set(CMAKE_OBJCOPY arm-none-eabi-objcopy)
 set(CMAKE_OBJDUMP arm-none-eabi-objdump)
 set(SIZE arm-none-eabi-size)
+
+set(CMAKE_AR arm-none-eabi-ar)
 set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
 
 # project settings
@@ -17,6 +19,13 @@ project(Dust_InfantryRobotChassis C CXX ASM)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# # Resolve binary tools from the same toolchain directory as the compiler,
+# # so post-build steps do not depend on PATH being configured.
+# get_filename_component(ARM_GNU_BIN_DIR "${CMAKE_C_COMPILER}" DIRECTORY)
+# find_program(CMAKE_OBJCOPY NAMES arm-none-eabi-objcopy HINTS "${ARM_GNU_BIN_DIR}" REQUIRED)
+# find_program(CMAKE_OBJDUMP NAMES arm-none-eabi-objdump HINTS "${ARM_GNU_BIN_DIR}" REQUIRED)
+# find_program(SIZE NAMES arm-none-eabi-size HINTS "${ARM_GNU_BIN_DIR}" REQUIRED)
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(DustOptions)
@@ -51,6 +60,7 @@ target_link_libraries(${PROJECT_NAME}.elf PRIVATE libarm_cortexM7lfsp_math.a)
 add_subdirectory(ThirdParty)
 add_subdirectory(daemon_supervisor)
 add_subdirectory(Board/dm-h723)
+add_subdirectory(Platform)
 add_subdirectory(Algorithm)
 add_subdirectory(Drivers)
 add_subdirectory(Communication)
@@ -61,6 +71,7 @@ target_link_libraries(${PROJECT_NAME}.elf PRIVATE
     dust_thirdparty
     dust_daemon_supervisor
     dust_board_dm_h723
+    dust_platform
     dust_algorithm
     dust_drivers
     dust_communication
