@@ -49,37 +49,31 @@ void McuComm::Task() {
 
 void McuComm::CanSendCommand() {
 
-     static uint8_t can_tx_frame[16];
-     // 把 float 转换成字节
-     union { float f; uint8_t b[4]; } conv;
+     static uint8_t can_tx_frame[12];
      // ---- 第1帧：yaw_angle 的4个字节和 yaw_omega 的4个字节 ----
-     conv.f = mcu_send_data_.yaw_angle;
-     can_tx_frame[0] = conv.b[0];
-     can_tx_frame[1] = conv.b[1];
-     can_tx_frame[2] = conv.b[2];
-     can_tx_frame[3] = conv.b[3];
 
-     conv.f = mcu_send_data_.yaw_omega;
-     can_tx_frame[4] = conv.b[0];
-     can_tx_frame[5] = conv.b[1];
-     can_tx_frame[6] = conv.b[2];
-     can_tx_frame[7] = conv.b[3];
+     memcpy(&can_tx_frame[0], &mcu_send_data_.yaw_angle, 4 * sizeof(uint8_t)); // 直接 memcpy 整个 float 的字节到 can_tx_frame 中
+
+     // conv.f = mcu_send_data_.yaw_omega;
+     // can_tx_frame[4] = conv.b[0];
+     // can_tx_frame[5] = conv.b[1];
+     // can_tx_frame[6] = conv.b[2];
+     // can_tx_frame[7] = conv.b[3];
 
      // ---- 第2帧：pitch_angle 的4个字节和 pitch_omega 的4个字节 ----
-     conv.f = mcu_send_data_.pitch_angle;
-     can_tx_frame[8] = conv.b[0];
-     can_tx_frame[9] = conv.b[1];
-     can_tx_frame[10] = conv.b[2];
-     can_tx_frame[11] = conv.b[3];
 
-     conv.f = mcu_send_data_.pitch_omega;
-     can_tx_frame[12] = conv.b[0];
-     can_tx_frame[13] = conv.b[1];
-     can_tx_frame[14] = conv.b[2];
-     can_tx_frame[15] = conv.b[3];
+     memcpy(&can_tx_frame[4], &mcu_send_data_.pitch_angle, 4 * sizeof(uint8_t)); // 直接 memcpy 整个 float 的字节到 can_tx_frame 中
 
-     // 发送第2帧（8字节）
-     fdcan_send_data(can_manage_object_->can_handler, GIMBAL_INFO_ID, can_tx_frame, 16);
+     // conv.f = mcu_send_data_.pitch_omega;
+     // can_tx_frame[12] = conv.b[0];
+     // can_tx_frame[13] = conv.b[1];
+     // can_tx_frame[14] = conv.b[2];
+     // can_tx_frame[15] = conv.b[3];
+
+     memcpy(&can_tx_frame[8], &mcu_send_data_.bullet_speed, 4 * sizeof(uint8_t)); // 直接 memcpy 整个 float 的字节到 can_tx_frame 中
+
+     // 发送（12字节）
+     fdcan_send_data(can_manage_object_->can_handler, GIMBAL_INFO_ID, can_tx_frame, 12);
 }
 
 void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {

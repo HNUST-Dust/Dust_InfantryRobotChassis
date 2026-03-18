@@ -41,9 +41,10 @@ constexpr uint8_t REMOTE_CONTROL_ID = 0xAB;
 struct McuSendData
 {
     float yaw_angle;   
-    float yaw_omega;  
+    // float yaw_omega;  
     float pitch_angle; 
-    float pitch_omega; 
+    // float pitch_omega; 
+    float bullet_speed;
 };
 constexpr uint16_t GIMBAL_INFO_ID      = 0x0A;
 
@@ -86,7 +87,6 @@ public:
     };
 
     McuSendData mcu_send_data_ = {
-            0.0f,
             0.0f,
             0.0f,
             0.0f,
