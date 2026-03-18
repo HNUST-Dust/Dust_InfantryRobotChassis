@@ -80,9 +80,9 @@ void Gimbal::Init()
 #ifdef PITCH_IMU_MODE
     //pitch轴角度环PID初始化
     pitch_angle_pid_.Init(
-        18.0f,
+        25.0f,
         2.3f,
-        0.001f,
+        0.0005f,
         20.0f,
         29.0f,
         29.0f,
@@ -100,7 +100,7 @@ void Gimbal::Init()
         3.0f,
         5.0f,
         0.00f,
-        1.0f,
+        3.0f,
         9.0f,
         9.9f,
         0.001f,

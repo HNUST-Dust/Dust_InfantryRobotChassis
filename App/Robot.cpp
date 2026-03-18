@@ -329,9 +329,10 @@ void Robot::Task()
    
         }
         // // 回传云台电机角度数据
-        // mcu_comm_.mcu_send_data_.yaw_angle = -gimbal_.GetYawNowAngleNoncumulative();
-        // mcu_comm_.mcu_send_data_.pitch_angle = -gimbal_.GetPitchNowAngleNoncumulative();
-        // mcu_comm_.CanSendCommand();
+        mcu_comm_.mcu_send_data_.yaw_angle = -gimbal_.GetYawNowAngleNoncumulative();
+        mcu_comm_.mcu_send_data_.pitch_angle = -gimbal_.GetPitchNowAngleNoncumulative();
+        mcu_comm_.mcu_send_data_.bullet_speed = referee_.GetInitialSpeed();
+        mcu_comm_.CanSendCommand();
         
         
         /********************** 超级电容 ***********************/   
@@ -363,6 +364,7 @@ void Robot::Task()
         debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         debug_tools_.VofaSendFloat(virtual_pitch_angle_);
         debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
+        debug_tools_.VofaSendFloat(referee_.GetInitialSpeed()); 
 
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(bmi088_.yaw_rad);
