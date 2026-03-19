@@ -317,6 +317,10 @@ void Gimbal::Task()
             motor_pitch_.SetControlTorque(0);
         
         } else if(power_on_flag_ == true && first_power_on_flag_ == true){
+            if (yaw_zero_request_) {
+                SetYawZero();
+                yaw_zero_request_ = false;
+            }
             SelfResolution();
             if (loop_count & 1) {
                 motor_yaw_.AlivePeriodElapsedCallback();
@@ -325,7 +329,8 @@ void Gimbal::Task()
             }
         } else {
             // 断电时复位边沿检测状态，允许下一次 false->true 再走对齐流程。
-            first_power_on_flag_ = false;
+            // first_power_on_flag_ = false;
+            yaw_zero_request_ = false;
         }
 
 

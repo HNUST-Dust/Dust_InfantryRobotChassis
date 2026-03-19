@@ -36,15 +36,6 @@ float AlignSingleTurnYawToNearestMultiTurnRad(float imu_multi_turn_rad, float si
     const float turns = roundf((imu_multi_turn_rad - single_turn_yaw_rad) / kTwoPi);
     return single_turn_yaw_rad + turns * kTwoPi;
 }
-
-void DoGimbalResetZeroSequence(Gimbal& gimbal)
-{
-    gimbal.SetYawZero();
-    gimbal.motor_pitch_.CanSendClearError();
-    osDelay(100);
-    gimbal.motor_pitch_.CanSendEnter();
-    osDelay(100);
-}
 }
 
 
@@ -174,8 +165,7 @@ void Robot::Task()
 
             if (fabsf(yaw_err) <= kAlignDoneThresholdRad) {
                 if (++gimbal_align_stable_ticks_ >= kAlignStableTicksRequired) {
-                    // DoGimbalResetZeroSequence(gimbal_);
-                    gimbal_.SetYawZero();
+                    gimbal_.RequestYawZero();
                     gimbal_wait_align_then_reset_zero_ = false;
                     gimbal_align_stable_ticks_ = 0;
                 }
@@ -309,8 +299,7 @@ void Robot::Task()
         };
         if (mcu_comm_data_local.reset_zero == 1)
         {
-            // DoGimbalResetZeroSequence(gimbal_);
-            gimbal_.SetYawZero();
+            gimbal_.RequestYawZero();
         }
 
         /********************** mini PC ***********************/  

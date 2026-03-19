@@ -64,6 +64,7 @@ public:
     void Task();
     void Exit();
     void SetYawZero();
+    void RequestYawZero();
 
     inline float GetNowYawAngle();
 
@@ -264,6 +265,7 @@ protected:
 
     bool power_on_flag_ = false;
     bool first_power_on_flag_ = false;
+    bool yaw_zero_request_ = false;
 
     void SelfResolution();
     void MotorNearestTransposition();
@@ -390,6 +392,11 @@ inline void Gimbal::SetTargetYawOmega(float target_yaw_omega)
 inline void Gimbal::SetTargetPitchOmega(float target_pitch_omega)
 {
     target_pitch_omega_ = target_pitch_omega;
+}
+
+inline void Gimbal::RequestYawZero()
+{
+    yaw_zero_request_ = true;
 }
 
 

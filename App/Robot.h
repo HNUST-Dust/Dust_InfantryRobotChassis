@@ -27,7 +27,7 @@
 
 #define CHASSIS_SPEED_3V3                10.0f
 #define CHASSIS_SPIN_SPEED_3V3           30.0f
-#define CHASSIS_SPEED_3V3_FAST_RUN       15.0f
+#define CHASSIS_SPEED_3V3_FAST_RUN       17.0f
 #define CHASSIS_SPIN_SPEED_3V3_FAST_RUN  25.0f
 
 #define YAW_GEAR_RATIO                   0.8f
