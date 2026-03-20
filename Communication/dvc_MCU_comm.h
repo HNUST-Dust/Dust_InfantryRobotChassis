@@ -12,15 +12,14 @@
 #define MODULES_COMM_DVC_MCU_COMM_H
 
 #include "bsp_can.h"
+#include "stm32h7xx_hal.h"
 #include "supercap.h"
 #include <cstdint>
 
-enum ChassisSpinMode
-{
-    CHASSIS_SPIN_CLOCKWISE          = 0,
-    CHASSIS_SPIN_DISABLE            = 1,
-    CHASSIS_SPIN_COUNTER_CLOCK_WISE = 2,
-};
+
+#define     CHASSIS_SPIN_CLOCKWISE          0
+#define     CHASSIS_SPIN_DISABLE            1
+
 
 struct McuCommData
 {
@@ -29,12 +28,17 @@ struct McuCommData
     uint8_t         chassis_speed_x  = 127;                     // 平移方向：前、后、左、右
     uint8_t         chassis_speed_y  = 127;                     // 底盘移动总速度
     uint8_t         chassis_rotation = 127;                     // 自转：不转、顺时针转、逆时针转
-    ChassisSpinMode chassis_spin     = CHASSIS_SPIN_DISABLE;    // 小陀螺：不转、顺时针转、逆时针转
-    uint8_t         supercap         = SUPERCAP_STATUS_DISABLE; // 超级电容：充电、放电
-    uint8_t         auto_aim_flag    = 0;                       // 自瞄标志
-    uint8_t         reset_zero       = 0;                       // 云台设置零点
-    uint8_t         booster_status   = 0;                       // 发射机构状态
-    uint8_t         fast_run         = 0;                       // 快跑标志位 
+    uint8_t         chassis_spin;                         // 小陀螺：不转、顺时针转、逆时针转
+    struct 
+    {
+        uint8_t         supercap:1;                             // 超级电容：充电、放电
+        uint8_t         auto_aim_flag:1;                        // 自瞄标志
+        uint8_t         reset_zero:1;                           // 云台设置零点
+        uint8_t         booster_status:1;                       // 发射机构状态
+        uint8_t         fast_run:1;                             // 快跑标志位
+        uint8_t         refresh_ui:1;                           // 刷新UI标志位
+        uint8_t         reserved:2;                             // 保留位         
+    }Switch;
 };
 constexpr uint8_t REMOTE_CONTROL_ID = 0xAB;
 
@@ -79,11 +83,15 @@ public:
             127,
             127,
             CHASSIS_SPIN_DISABLE,
-            0,
-            0,
-            0,
-            0,
-            0,
+            {
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+            }
     };
 
     McuSendData mcu_send_data_ = {

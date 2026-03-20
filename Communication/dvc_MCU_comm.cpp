@@ -92,17 +92,18 @@ void McuComm::CanRemoteControlRxCpltCallback(uint8_t* rx_data) {
           mcu_comm_data_.chassis_spin = CHASSIS_SPIN_DISABLE;
           break;
           case 2:
-          mcu_comm_data_.chassis_spin = CHASSIS_SPIN_COUNTER_CLOCK_WISE;
+          mcu_comm_data_.chassis_spin = 2;
           break;
           default:
           mcu_comm_data_.chassis_spin = CHASSIS_SPIN_DISABLE;
           break;
      }
-     mcu_comm_data_.supercap             = rx_data[6];
-     mcu_comm_data_.auto_aim_flag        = rx_data[7];
-     mcu_comm_data_.reset_zero           = rx_data[8];
-     mcu_comm_data_.booster_status       = rx_data[9];
-     mcu_comm_data_.fast_run             = rx_data[10];
+     mcu_comm_data_.Switch.supercap             = (rx_data[6]>>0) & 0x01u;
+     mcu_comm_data_.Switch.auto_aim_flag        = (rx_data[6]>>1) & 0x01u;
+     mcu_comm_data_.Switch.reset_zero           = (rx_data[6]>>2) & 0x01u;
+     mcu_comm_data_.Switch.booster_status       = (rx_data[6]>>3) & 0x01u;
+     mcu_comm_data_.Switch.fast_run             = (rx_data[6]>>4) & 0x01u;
+     mcu_comm_data_.Switch.refresh_ui           = (rx_data[6]>>5) & 0x01u;
 }
 
 void McuComm::CanAutoAimInfoRxCpltCallback(uint8_t* rx_data) {

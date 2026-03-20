@@ -212,29 +212,34 @@ public:
     bool spin_status_ = false; // 小陀螺状态
     bool booster_status_ = false; // 摩擦轮状态
     bool supercap_status_ = false; // 超级电容状态
-
+    bool fastrun_status_ = false; // 快速移动状态
+    bool request_ui = false; // 请求上板刷新UI的标志位
+    
     // 保存解析后的数据（私有）
     StatusData status_{0};
     ShootData shoot_{};
     GameStatus game_status_{};
 
-    int ui_self_id;
+    int ui_self_id = 3; // 本机器人ID，默认为3（根据比赛规则设定），通过解析StatusData获取并更新
     uint8_t seq = 0;
 private:
     static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
 
-    char chassis_flag[8]; 
-
-    ui_2_frame_t ui_0_;
+    ui_7_frame_t ui_0_;
     ui_string_frame_t ui_1_;
     ui_string_frame_t ui_2_;
     ui_string_frame_t ui_3_;
 
-    ui_interface_line_t *ui_chassis_l_ = (ui_interface_line_t*)&(ui_0_.data[0]);
-    ui_interface_line_t *ui_chassis_r_ =(ui_interface_line_t*)&(ui_0_.data[1]);
-    ui_interface_string_t *ui_spin_ = &(ui_1_.option);
-    ui_interface_string_t *ui_booster_ = &(ui_2_.option);
-    ui_interface_string_t *ui_supercap_ = &(ui_3_.option);
+    ui_interface_arc_t *ui_target_l_ = (ui_interface_arc_t*)&(ui_0_.data[0]);
+    ui_interface_arc_t *ui_target_r_ =(ui_interface_arc_t*)&(ui_0_.data[1]);
+    ui_interface_round_t *ui_spin_ =(ui_interface_round_t*)&(ui_0_.data[2]);
+    ui_interface_arc_t *ui_booster_l_ =(ui_interface_arc_t*)&(ui_0_.data[3]);
+    ui_interface_arc_t *ui_booster_r_ =(ui_interface_arc_t*)&(ui_0_.data[4]);
+    ui_interface_line_t *ui_booster_m_ =(ui_interface_line_t*)&(ui_0_.data[5]);
+    ui_interface_arc_t *ui_fastrun_ =(ui_interface_arc_t*)&(ui_0_.data[6]);
+    // ui_interface_string_t *ui_spin_ = &(ui_1_.option);
+    // ui_interface_string_t *ui_booster_ = &(ui_2_.option);
+    // ui_interface_string_t *ui_supercap_ = &(ui_3_.option);
 
     void ui_proc_1_frame(ui_1_frame_t *msg);
     void ui_proc_2_frame(ui_2_frame_t *msg);
@@ -246,17 +251,17 @@ private:
     void ui_update_0();
     void ui_remove_0();
 
-    void ui_init_1();
-    void ui_update_1();
-    void ui_remove_1();
+    // void ui_init_1();
+    // void ui_update_1();
+    // void ui_remove_1();
 
-    void ui_init_2();
-    void ui_update_2();
-    void ui_remove_2();
+    // void ui_init_2();
+    // void ui_update_2();
+    // void ui_remove_2();
 
-    void ui_init_3();
-    void ui_update_3();
-    void ui_remove_3();
+    // void ui_init_3();
+    // void ui_update_3();
+    // void ui_remove_3();
 
     volatile bool has_received_rx_msg_ = false;
     bool ui_inited_ = false;
