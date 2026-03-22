@@ -34,6 +34,11 @@ public:
     inline void SetTargetVyInGimbal(float target_vy);
     inline void SetTargetVelocityRotation(float target_velocity_rotation);
     inline void SetYawAngle(float yaw_angle);
+    inline void SetPowerLimit(float power_limit_w);
+    inline void SetPowerBufferEnergy(float power_buffer_energy);
+    inline float GetPowerEstimate();
+    inline float GetPowerScale();
+    inline float GetPowerBufferConsume();
 protected:
     // 云台坐标系目标速度
     float target_vx_in_gimbal_ = 0.0f;
@@ -46,7 +51,26 @@ protected:
     // 云台相对于底盘的偏航角（逆时针为正）
     float yaw_angle_ = 0.0f; 
 
+    // 底盘功率限流反馈（来自裁判系统缓冲能量）
+    float chassis_power_estimate_ = 0.0f;
+    float chassis_power_limit_w_ = 60.0f;
+    float power_buffer_energy_ = 60.0f;
+    float power_buffer_consume_ = 0.0f;
+    float power_buffer_consume_last_ = 0.0f;
+    float power_scale_ = 1.0f;
+    float power_pd_kp_ = 1.15f;
+    float power_pd_kd_ = 0.50f;
+    float power_scale_min_ = 0.02f;
+    float power_scale_attack_alpha_ = 0.35f;
+    float power_scale_release_alpha_ = 0.015f;
+    float power_hard_limit_trigger_j_ = 1.0f;
+    float power_hard_limit_scale_ = 0.02f;
+    uint16_t power_hard_limit_hold_ticks_ = 0;
+    uint16_t power_hard_limit_hold_ticks_default_ = 300;
+
     void KinematicsInverseResolution();
+    void ChassisPidCalculate();
+    void ChassisPowerControl();
     void RotationMatrixTransform();
     void OutputToMotor();
     static void TaskEntry(void *param);  // FreeRTOS 入口，静态函数
@@ -85,6 +109,45 @@ inline void Chassis::SetTargetVelocityRotation(float target_velocity_rotation)
 inline void Chassis::SetYawAngle(float yaw_angle)
 {
     yaw_angle_ = yaw_angle;
+}
+
+inline void Chassis::SetPowerLimit(float power_limit_w)
+{
+    if (power_limit_w > 1.0f)
+    {
+        chassis_power_limit_w_ = power_limit_w;
+    }
+}
+
+inline void Chassis::SetPowerBufferEnergy(float power_buffer_energy)
+{
+    if (power_buffer_energy < 0.0f)
+    {
+        power_buffer_energy_ = 0.0f;
+    }
+    else if (power_buffer_energy > 60.0f)
+    {
+        power_buffer_energy_ = 60.0f;
+    }
+    else
+    {
+        power_buffer_energy_ = power_buffer_energy;
+    }
+}
+
+inline float Chassis::GetPowerEstimate()
+{
+    return chassis_power_estimate_;
+}
+
+inline float Chassis::GetPowerScale()
+{
+    return power_scale_;
+}
+
+inline float Chassis::GetPowerBufferConsume()
+{
+    return power_buffer_consume_;
 }
 
 #endif // !APP_CHASSIS_H_

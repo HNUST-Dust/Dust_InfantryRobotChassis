@@ -194,9 +194,9 @@ void Robot::Task()
                 chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_3V3_FAST_RUN / 128.0f);
                 chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_3V3_FAST_RUN / 128.0f));    
             } else {
-                chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_3V3 / 128.0f);
-                chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_3V3 / 128.0f);
-                chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_3V3 / 128.0f));
+                chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * (CHASSIS_SPEED_3V3 ) / 128.0f);
+                chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * (CHASSIS_SPEED_3V3 ) / 128.0f);
+                chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * (CHASSIS_SPIN_SPEED_3V3 ) / 128.0f));
             }
         }
         else {
@@ -212,6 +212,9 @@ void Robot::Task()
         }
 
         chassis_.SetYawAngle(-normalize_angle_pm_pi(gimbal_.GetNowYawAngle()/YAW_GEAR_RATIO));
+        chassis_.SetPowerLimit(static_cast<float>(referee_.GetChassisPowerLimit()));
+        chassis_.SetPowerBufferEnergy(static_cast<float>(referee_.GetChassisPowerBuffer()));
+
 
         /********************** 模式切换 ***********************/   
         switch(mcu_comm_data_local.chassis_spin)
@@ -246,12 +249,12 @@ void Robot::Task()
                         
                         gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
                     } else {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3)
-                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3);
-                        else if (spin_speed > CHASSIS_SPIN_SPEED_3V3)
-                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3);
+                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3 )
+                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3 );
+                        else if (spin_speed > CHASSIS_SPIN_SPEED_3V3 )
+                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3 );
                         
-                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3);
+                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * (CHASSIS_SPIN_SPEED_3V3 ));
                     }
                 }
                 else
@@ -359,11 +362,14 @@ void Robot::Task()
             referee_.request_ui = true;
         }
         /********************** 调试信息 ***********************/   
-        debug_tools_.VofaSendFloat(virtual_yaw_angle_);
-        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
-        debug_tools_.VofaSendFloat(virtual_pitch_angle_);
-        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
-        debug_tools_.VofaSendFloat(referee_.GetInitialSpeed()); 
+        // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
+        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
+        // debug_tools_.VofaSendFloat(virtual_pitch_angle_);
+        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
+        // debug_tools_.VofaSendFloat(referee_.GetInitialSpeed()); 
+        debug_tools_.VofaSendFloat(chassis_.GetPowerBufferConsume());
+        debug_tools_.VofaSendFloat(static_cast<float>(referee_.GetChassisPowerBuffer()));
+        debug_tools_.VofaSendFloat(chassis_.GetPowerScale());
 
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(bmi088_.yaw_rad);

@@ -87,6 +87,11 @@ struct ui_string_frame_t{
     uint16_t crc16;
 }__attribute__((packed));
 
+struct ui_number_frame_t{
+    ui_frame_header_t header;
+    ui_interface_number_t option;
+    uint16_t crc16;
+}__attribute__((packed));
 
 void print_message(const uint8_t* message, int length);
 
@@ -173,6 +178,16 @@ struct ShootData {
 } __attribute__((packed));
 static constexpr uint16_t kShootDataId = 0x0207;
 
+struct RobotPowerHeatData {
+    uint16_t reserved_1;            // mV
+    uint16_t reserverd_2;           // mA
+    float reserverd_3;              // W
+    uint16_t chassis_power_buffer;           // J
+    uint16_t booster_17mm_heat;
+    uint16_t booster_42mm_heat;
+} __attribute__((packed));
+static constexpr uint16_t kRobotPowerHeatDataId = 0x0202;
+
 enum class GameType : uint8_t {
     RMUC = 0x1,
     RMUL_Engineer = 0x2,
@@ -203,6 +218,7 @@ public:
     uint16_t GetCurrentHp() const { return status_.current_hp; }
     uint16_t GetMaxHp() const { return status_.max_hp; }
     uint16_t GetChassisPowerLimit() const { return status_.chassis_power_limit; }
+    uint16_t GetChassisPowerBuffer() const { return power_heat_.chassis_power_buffer; }
     bool IsGimbalPowerOn() const { return status_.power_management_gimbal_output != 0; }
 
     uint8_t GetBulletType() const { return shoot_.bullet_type; }
@@ -217,6 +233,7 @@ public:
     
     // 保存解析后的数据（私有）
     StatusData status_{0};
+    RobotPowerHeatData power_heat_{};
     ShootData shoot_{};
     GameStatus game_status_{};
 
@@ -230,14 +247,14 @@ private:
     ui_string_frame_t ui_2_;
     ui_string_frame_t ui_3_;
 
-    ui_interface_arc_t *ui_target_l_ = (ui_interface_arc_t*)&(ui_0_.data[0]);
-    ui_interface_arc_t *ui_target_r_ =(ui_interface_arc_t*)&(ui_0_.data[1]);
-    ui_interface_round_t *ui_spin_ =(ui_interface_round_t*)&(ui_0_.data[2]);
-    ui_interface_arc_t *ui_booster_l_ =(ui_interface_arc_t*)&(ui_0_.data[3]);
-    ui_interface_arc_t *ui_booster_r_ =(ui_interface_arc_t*)&(ui_0_.data[4]);
-    ui_interface_line_t *ui_booster_m_ =(ui_interface_line_t*)&(ui_0_.data[5]);
-    ui_interface_arc_t *ui_fastrun_ =(ui_interface_arc_t*)&(ui_0_.data[6]);
-    // ui_interface_string_t *ui_spin_ = &(ui_1_.option);
+    ui_interface_rect_t *ui_target_ = (ui_interface_rect_t*)&(ui_0_.data[0]);
+    ui_interface_round_t *ui_spin_ =(ui_interface_round_t*)&(ui_0_.data[1]);
+    ui_interface_round_t *ui_booster_round_ =(ui_interface_round_t*)&(ui_0_.data[2]);
+    ui_interface_line_t *ui_booster_line1_ =(ui_interface_line_t*)&(ui_0_.data[3]);
+    ui_interface_line_t *ui_booster_line2_ =(ui_interface_line_t*)&(ui_0_.data[4]);
+    ui_interface_line_t *ui_fastrun_line1_ =(ui_interface_line_t*)&(ui_0_.data[5]);
+    ui_interface_line_t *ui_fastrun_line2_ =(ui_interface_line_t*)&(ui_0_.data[6]);
+    // ui_interface_number_t *ui_bias_ = &(ui_1_.option);
     // ui_interface_string_t *ui_booster_ = &(ui_2_.option);
     // ui_interface_string_t *ui_supercap_ = &(ui_3_.option);
 
@@ -251,9 +268,9 @@ private:
     void ui_update_0();
     void ui_remove_0();
 
-    // void ui_init_1();
-    // void ui_update_1();
-    // void ui_remove_1();
+    void ui_init_1();
+    void ui_update_1();
+    void ui_remove_1();
 
     // void ui_init_2();
     // void ui_update_2();
