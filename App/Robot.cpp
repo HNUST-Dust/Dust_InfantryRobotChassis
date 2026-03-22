@@ -69,7 +69,7 @@ void Robot::Init()
     chassis_.Init();
     // ramp_init(&chassis_spin_ramp_source, 0.0005f, 30.0f, -30.0f);
     // 超级电容初始化
-    supercap_.Init(&hfdcan3, 0x100, 0x003);
+    // supercap_.Init(&hfdcan3, 0x100, 0x003);
     // 云台初始化
     gimbal_.Init();
     // 板载陀螺仪初始化
@@ -108,6 +108,11 @@ void Robot::Task()
     float yaw_avg_sum = 0.0f;
     float spin_speed = 0.0f;
     float accel = 0.03f;
+    // 变速小陀螺（用于 test_spin）
+    float var_spin_phase = 0.0f;
+    const float var_spin_freq = 0.15f;
+    const float var_spin_min_ratio = 0.2f;
+    const float var_spin_max_ratio = 0.8f;
 
     for (;;)
     {
@@ -198,8 +203,7 @@ void Robot::Task()
                 chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * (CHASSIS_SPEED_3V3 ) / 128.0f);
                 chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * (CHASSIS_SPIN_SPEED_3V3 ) / 128.0f));
             }
-        }
-        else {
+        } else {
             if (mcu_comm_data_local.Switch.fast_run == 1) {
                 chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_3V3_FAST_RUN / 128.0f);
                 chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_3V3_FAST_RUN / 128.0f);
@@ -221,6 +225,7 @@ void Robot::Task()
         {
             case CHASSIS_SPIN_CLOCKWISE:
                 // --- 缓启动逼近 ---
+#ifndef VAR_SPIN_MODE
                 if(referee_.game_status_.game_type == GameType::RMUL_Infantry)
                 {
                     if (mcu_comm_data_local.Switch.fast_run == 1) {
@@ -281,10 +286,44 @@ void Robot::Task()
                 gimbal_.SetTargetYawOmega((mcu_comm_data_local.yaw - 127.0f)*YAW_SPEED_SENSITIVITY); //补偿速度可能符号错了
 
                 referee_.spin_status_ = true;
+#else
+                // 变速小陀螺模式（编译选项 VAR_SPIN_MODE 打开）: 在基准转速附近按正弦周期变速
+                {
+                    float base_speed = CHASSIS_SPIN_SPEED_3V3;
+                    if (referee_.game_status_.game_type == GameType::RMUL_Infantry) {
+                        base_speed = (mcu_comm_data_local.Switch.fast_run == 1) ? CHASSIS_SPIN_SPEED_1V1_FAST_RUN : CHASSIS_SPIN_SPEED_1V1;
+                    } else if (referee_.game_status_.game_type == GameType::RMUL_3V3) {
+                        base_speed = (mcu_comm_data_local.Switch.fast_run == 1) ? CHASSIS_SPIN_SPEED_3V3_FAST_RUN : CHASSIS_SPIN_SPEED_3V3;
+                    } else {
+                        base_speed = (mcu_comm_data_local.Switch.fast_run == 1) ? CHASSIS_SPIN_SPEED_3V3_FAST_RUN : CHASSIS_SPIN_SPEED_3V3;
+                    }
+
+                    const float kTwoPi = 2.0f * PI;
+                    const float sine = sinf(var_spin_phase);
+                    const float target_ratio = var_spin_min_ratio + 0.5f * (1.0f + sine) * (var_spin_max_ratio - var_spin_min_ratio);
+                    const float target_speed = target_ratio * base_speed;
+
+                    if (spin_speed < target_speed)
+                        spin_speed = fminf(spin_speed + accel, target_speed);
+                    else if (spin_speed > target_speed)
+                        spin_speed = fmaxf(spin_speed - accel, target_speed);
+
+                    var_spin_phase += var_spin_freq;
+                    if (var_spin_phase >= kTwoPi) var_spin_phase -= kTwoPi;
+
+                    gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * target_speed);
+                    chassis_.SetTargetVelocityRotation(spin_speed);
+                    gimbal_.SetGimbalYawControlType(GIMBAL_CONTROL_TYPE_OMEGA);
+                    gimbal_.SetTargetYawOmega((mcu_comm_data_local.yaw - 127.0f)*YAW_SPEED_SENSITIVITY);
+
+                    referee_.spin_status_ = true;
+                }
+#endif
             break;
             case CHASSIS_SPIN_DISABLE:
                 spin_speed = 0;
-                chassis_.SetTargetVelocityRotation(0.0f);
+                chassis_.SetTargetVelocityRotation((mcu_comm_data_local.chassis_rotation-127.0f)*CHASSIS_SPIN_SPEED_1V1/128.0f);
+                // chassis_.SetTargetVelocityRotation(0.0f);
                 gimbal_.SetGimbalYawControlType(GIMBAL_CONTROL_TYPE_ANGLE);
                 gimbal_.SetYawOmegaFeedforword(0.0f);
 
