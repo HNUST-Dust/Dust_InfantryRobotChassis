@@ -20,15 +20,15 @@
 #define PITCH_RANGE_MAX                  0.3f
 #define PITCH_RANGE_MAX_USE_IMU          0.45f
 
-#define CHASSIS_SPEED_1V1                17.0f
-#define CHASSIS_SPIN_SPEED_1V1           35.0f
-#define CHASSIS_SPEED_1V1_FAST_RUN       20.0f
-#define CHASSIS_SPIN_SPEED_1V1_FAST_RUN  30.0f
+#define CHASSIS_SPEED_1V1                23.0f
+#define CHASSIS_SPIN_SPEED_1V1           23.0f
+#define CHASSIS_SPEED_1V1_FAST_RUN       28.0f
+#define CHASSIS_SPIN_SPEED_1V1_FAST_RUN  18.0f
 
-#define CHASSIS_SPEED_3V3                15.0f
-#define CHASSIS_SPIN_SPEED_3V3           30.0f
-#define CHASSIS_SPEED_3V3_FAST_RUN       20.0f
-#define CHASSIS_SPIN_SPEED_3V3_FAST_RUN  25.0f
+#define CHASSIS_SPEED_3V3                18.0f
+#define CHASSIS_SPIN_SPEED_3V3           23.0f
+#define CHASSIS_SPEED_3V3_FAST_RUN       25.0f
+#define CHASSIS_SPIN_SPEED_3V3_FAST_RUN  18.0f
 
 #define YAW_GEAR_RATIO                   0.8f
 #define YAW_FEEDFORWORD_RATIO            0.19f
@@ -95,6 +95,8 @@ protected:
     // 上电沿对齐后，等待角度收敛再执行一次 reset_zero 同款流程
     bool gimbal_wait_align_then_reset_zero_ = false;
     uint16_t gimbal_align_stable_ticks_ = 0;
+    // 对齐等待超时计数（以 Robot::Task 的周期为单位，1 tick = 1 ms）
+    uint32_t gimbal_align_wait_ticks_ = 0;
     // 机器人等级
     int32_t robot_level_ = 1;
     static void TaskEntry(void *param);

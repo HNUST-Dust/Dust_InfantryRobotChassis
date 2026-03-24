@@ -29,6 +29,7 @@
 
 #include <cmath>
 
+#define VAR_SPIN_MODE
 namespace {
 float AlignSingleTurnYawToNearestMultiTurnRad(float imu_multi_turn_rad, float single_turn_yaw_rad)
 {
@@ -110,9 +111,9 @@ void Robot::Task()
     float accel = 0.03f;
     // 变速小陀螺（用于 test_spin）
     float var_spin_phase = 0.0f;
-    const float var_spin_freq = 0.15f;
-    const float var_spin_min_ratio = 0.2f;
-    const float var_spin_max_ratio = 0.8f;
+    const float var_spin_freq = 0.016f;
+    const float var_spin_min_ratio = 0.8f;
+    const float var_spin_max_ratio = 1.2f;
 
     for (;;)
     {
@@ -303,10 +304,8 @@ void Robot::Task()
                     const float target_ratio = var_spin_min_ratio + 0.5f * (1.0f + sine) * (var_spin_max_ratio - var_spin_min_ratio);
                     const float target_speed = target_ratio * base_speed;
 
-                    if (spin_speed < target_speed)
-                        spin_speed = fminf(spin_speed + accel, target_speed);
-                    else if (spin_speed > target_speed)
-                        spin_speed = fmaxf(spin_speed - accel, target_speed);
+                    // 直接采用正弦目标速度，无额外缓启动
+                    spin_speed = target_speed;
 
                     var_spin_phase += var_spin_freq;
                     if (var_spin_phase >= kTwoPi) var_spin_phase -= kTwoPi;
@@ -322,7 +321,7 @@ void Robot::Task()
             break;
             case CHASSIS_SPIN_DISABLE:
                 spin_speed = 0;
-                chassis_.SetTargetVelocityRotation((mcu_comm_data_local.chassis_rotation-127.0f)*CHASSIS_SPIN_SPEED_1V1/128.0f);
+                chassis_.SetTargetVelocityRotation((mcu_comm_data_local.chassis_rotation-127.0f)*35.0f/128.0f);
                 // chassis_.SetTargetVelocityRotation(0.0f);
                 gimbal_.SetGimbalYawControlType(GIMBAL_CONTROL_TYPE_ANGLE);
                 gimbal_.SetYawOmegaFeedforword(0.0f);
@@ -401,20 +400,21 @@ void Robot::Task()
             referee_.request_ui = true;
         }
         /********************** 调试信息 ***********************/   
-        // debug_tools_.VofaSendFloat(virtual_yaw_angle_);
-        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
+        debug_tools_.VofaSendFloat((mcu_comm_data_local.chassis_rotation-127.0f)*35.0f/128.0f);
+
+        debug_tools_.VofaSendFloat(virtual_yaw_angle_);
+        debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
         // debug_tools_.VofaSendFloat(virtual_pitch_angle_);
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
         // debug_tools_.VofaSendFloat(referee_.GetInitialSpeed()); 
-        debug_tools_.VofaSendFloat(chassis_.GetPowerBufferConsume());
-        debug_tools_.VofaSendFloat(static_cast<float>(referee_.GetChassisPowerBuffer()));
-        debug_tools_.VofaSendFloat(chassis_.GetPowerScale());
+        // debug_tools_.VofaSendFloat(chassis_.GetPowerBufferConsume());
+        // debug_tools_.VofaSendFloat(static_cast<float>(referee_.GetChassisPowerBuffer()));
+        // debug_tools_.VofaSendFloat(chassis_.GetPowerScale());
 
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(bmi088_.yaw_rad);
         // debug_tools_.VofaSendFloat(gimbal_.GetTargetPitchOmega());
-        // debug_tools_.VofaSendFloat(gimbal_.GetNowPitchOmega());
-        // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_omega_f);
+        // debug_tools_.VofaSendFloat(gimbal_.GetNowPitchOmega()); 21
 
         // 调试帧尾部
         debug_tools_.VofaSendTail();
