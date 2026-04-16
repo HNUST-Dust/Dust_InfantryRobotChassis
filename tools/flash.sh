@@ -1,0 +1,1 @@
+openocd -f Board/dm-h723/config/openocd_dap.cfg -c "program build/Dust_InfantryRobotChassis.bin verify reset exit 0x08000000"

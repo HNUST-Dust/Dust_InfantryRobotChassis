@@ -128,7 +128,7 @@ void Gimbal::Init()
         0.05f
     );
     // yaw轴速度环低通滤波器初始化
-    yaw_omega_filter_.Init(15.0f,0.001f);
+    yaw_omega_filter_.Init(20.0f,0.001f);
     pitch_omega_filter_.Init(20.0f,0.001f);
 
     motor_yaw_.Init(&hfdcan3, 0x12, 0x01,MOTOR_DM_CONTROL_METHOD_NORMAL_MIT,12.56637);
@@ -198,8 +198,8 @@ void Gimbal::SelfResolution()
     SetTargetYawOmega(yaw_angle_pid_.GetOut());
 #endif
     // yaw轴速度环
-    yaw_omega_pid_.SetTarget(GetTargetYawOmega());
-    // float filtered_omega = yaw_omega_filter_.Update(GetNowYawOmega());
+    filtered_yaw_omega = yaw_omega_filter_.Update(GetTargetYawOmega());
+    yaw_omega_pid_.SetTarget(filtered_yaw_omega);
     yaw_omega_pid_.SetNow(imu_yaw_omega_);
     yaw_omega_pid_.CalculatePeriodElapsedCallback();
 

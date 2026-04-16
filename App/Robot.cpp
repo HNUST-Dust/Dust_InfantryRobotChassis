@@ -29,13 +29,13 @@
 
 #include <cmath>
 
-#define VAR_SPIN_MODE
+// #define VAR_SPIN_MODE
 namespace {
 float AlignSingleTurnYawToNearestMultiTurnRad(float imu_multi_turn_rad, float single_turn_yaw_rad)
 {
     const float kTwoPi = 2.0f * PI;
     const float turns = roundf((imu_multi_turn_rad - single_turn_yaw_rad) / kTwoPi);
-    return single_turn_yaw_rad + turns * kTwoPi;
+    return single_turn_yaw_rad + (turns * kTwoPi);
 }
 }
 
@@ -230,54 +230,57 @@ void Robot::Task()
                 if(referee_.game_status_.game_type == GameType::RMUL_Infantry)
                 {
                     if (mcu_comm_data_local.Switch.fast_run == 1) {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_1V1_FAST_RUN)
+                        if (spin_speed < CHASSIS_SPIN_SPEED_1V1_FAST_RUN) {
                             spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_1V1_FAST_RUN);
-                        else if (spin_speed > CHASSIS_SPIN_SPEED_1V1_FAST_RUN)
+                        } else if (spin_speed > CHASSIS_SPIN_SPEED_1V1_FAST_RUN) {
                             spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_1V1_FAST_RUN);
-                        
+                        }
+
                         gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_1V1_FAST_RUN);
                     } else {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_1V1)
+                        if (spin_speed < CHASSIS_SPIN_SPEED_1V1) {
                             spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_1V1);
-                        else if (spin_speed > CHASSIS_SPIN_SPEED_1V1)
+                        } else if (spin_speed > CHASSIS_SPIN_SPEED_1V1) {
                             spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_1V1);
-                        
+                        }
+
                         gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_1V1);
                     }
                 }
-                else if(referee_.game_status_.game_type == GameType::RMUL_3V3)
-                {
+                else if (referee_.game_status_.game_type == GameType::RMUL_3V3) {
                     if (mcu_comm_data_local.Switch.fast_run == 1) {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3_FAST_RUN)
+                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3_FAST_RUN) {
                             spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
-                        else if (spin_speed > CHASSIS_SPIN_SPEED_3V3_FAST_RUN)
+                        } else if (spin_speed > CHASSIS_SPIN_SPEED_3V3_FAST_RUN) {
                             spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
-                        
+                        }
+
                         gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
                     } else {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3 )
-                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3 );
-                        else if (spin_speed > CHASSIS_SPIN_SPEED_3V3 )
-                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3 );
-                        
-                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * (CHASSIS_SPIN_SPEED_3V3 ));
-                    }
-                }
-                else
-                {
-                    if (mcu_comm_data_local.Switch.fast_run == 1) {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3_FAST_RUN)
-                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
-                        else if (spin_speed > CHASSIS_SPIN_SPEED_3V3_FAST_RUN)
-                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
-                        
-                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
-                    } else {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3)
+                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3) {
                             spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3);
-                        else if (spin_speed > CHASSIS_SPIN_SPEED_3V3)
+                        } else if (spin_speed > CHASSIS_SPIN_SPEED_3V3) {
                             spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3);
-                        
+                        }
+
+                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3);
+                    }
+                } else {
+                    if (mcu_comm_data_local.Switch.fast_run == 1) {
+                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3_FAST_RUN) {
+                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
+                        } else if (spin_speed > CHASSIS_SPIN_SPEED_3V3_FAST_RUN) {
+                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
+                        }
+
+                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
+                    } else {
+                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3) {
+                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3);
+                        } else if (spin_speed > CHASSIS_SPIN_SPEED_3V3) {
+                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3);
+                        }
+
                         gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3);
                     }
                 }
@@ -321,7 +324,7 @@ void Robot::Task()
             break;
             case CHASSIS_SPIN_DISABLE:
                 spin_speed = 0;
-                chassis_.SetTargetVelocityRotation((mcu_comm_data_local.chassis_rotation-127.0f)*35.0f/128.0f);
+                // chassis_.SetTargetVelocityRotation((mcu_comm_data_local.chassis_rotation-127.0f)*35.0f/128.0f);
                 // chassis_.SetTargetVelocityRotation(0.0f);
                 gimbal_.SetGimbalYawControlType(GIMBAL_CONTROL_TYPE_ANGLE);
                 gimbal_.SetYawOmegaFeedforword(0.0f);
@@ -365,45 +368,36 @@ void Robot::Task()
         mcu_comm_.CanSendCommand();
         
         
-        /********************** 超级电容 ***********************/   
-        if(mcu_comm_data_local.Switch.supercap == 0){
+        /********************** 超级电容 ***********************/
+        if (mcu_comm_data_local.Switch.supercap == 0) {
             supercap_.SetChargeStatus(SUPERCAP_STATUS_CHARGE);
-
             referee_.supercap_status_ = false;
-        }else if(mcu_comm_data_local.Switch.supercap == 1){
+        } else if (mcu_comm_data_local.Switch.supercap == 1) {
             supercap_.SetChargeStatus(SUPERCAP_STATUS_DISCHARGE);
-
             referee_.supercap_status_ = true;
-        }else{
+        } else {
             supercap_.SetChargeStatus(SUPERCAP_STATUS_CHARGE);
-
             referee_.supercap_status_ = false;
         }
         supercap_.SetPowerLimitMax(100);
         supercap_.SetChargePower(50);
  
         /********************** 上板发来的状态 ***********************/
-        if(mcu_comm_data_local.Switch.booster_status == 1){
-            referee_.booster_status_ = true;
-        }else{
-            referee_.booster_status_ = false;
-        }
+        referee_.booster_status_ = (mcu_comm_data_local.Switch.booster_status == 1);
 
-        if (mcu_comm_data_local.Switch.fast_run == 1)
-        {
-            referee_.fastrun_status_ = true;
-        } else {
-            referee_.fastrun_status_ = false;
-        }
+        referee_.fastrun_status_ = (mcu_comm_data_local.Switch.fast_run == 1);
         
         if (mcu_comm_data_local.Switch.refresh_ui == 1){
             referee_.request_ui = true;
         }
         /********************** 调试信息 ***********************/   
-        debug_tools_.VofaSendFloat((mcu_comm_data_local.chassis_rotation-127.0f)*35.0f/128.0f);
+        // debug_tools_.VofaSendFloat((mcu_comm_data_local.chassis_rotation-127.0f)*35.0f/128.0f);
 
         debug_tools_.VofaSendFloat(virtual_yaw_angle_);
         debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.yaw_total_angle_f); 
+        debug_tools_.VofaSendFloat(gimbal_.GetTargetYawOmega());
+        debug_tools_.VofaSendFloat(gimbal_.GetImuYawOmega());
+        debug_tools_.VofaSendFloat(gimbal_.GetFilteredImuYawOmega());
         // debug_tools_.VofaSendFloat(virtual_pitch_angle_);
         // debug_tools_.VofaSendFloat(mcu_comm_.mcu_imu_data_.pitch_f); 
         // debug_tools_.VofaSendFloat(referee_.GetInitialSpeed()); 
@@ -414,7 +408,7 @@ void Robot::Task()
         // debug_tools_.VofaSendFloat(gimbal_.GetYawNowAngleNoncumulative());
         // debug_tools_.VofaSendFloat(bmi088_.yaw_rad);
         // debug_tools_.VofaSendFloat(gimbal_.GetTargetPitchOmega());
-        // debug_tools_.VofaSendFloat(gimbal_.GetNowPitchOmega()); 21
+        // debug_tools_.VofaSendFloat(gimbal_.GetNowPitchOmega());
 
         // 调试帧尾部
         debug_tools_.VofaSendTail();

@@ -116,6 +116,16 @@ public:
         return pitch_now_angle_noncumulative_;
     }
 
+    float GetImuYawOmega()
+    {
+        return imu_yaw_omega_;
+    }
+
+    float GetFilteredImuYawOmega()
+    {
+        return filtered_yaw_omega;
+    }
+
     inline void SetTargetYawAngle(float target_yaw_angle);
 
     inline void SetTargetPitchAngle(float target_pitch_angle);
@@ -258,6 +268,7 @@ protected:
     float imu_yaw_angle_ = 0.0f;
     // yaw imu 角速度
     float imu_yaw_omega_ = 0.0f;
+    float filtered_yaw_omega = 0.0f;
     // pitch imu角度
     float imu_pitch_angle_ = 0.0f;
     // pitch imu 角速度
