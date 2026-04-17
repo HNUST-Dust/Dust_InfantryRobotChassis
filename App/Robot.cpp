@@ -204,15 +204,40 @@ void Robot::Task()
                 chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * (CHASSIS_SPEED_3V3 ) / 128.0f);
                 chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * (CHASSIS_SPIN_SPEED_3V3 ) / 128.0f));
             }
-        } else {
-            if (mcu_comm_data_local.Switch.fast_run == 1) {
-                chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_3V3_FAST_RUN / 128.0f);
-                chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_3V3_FAST_RUN / 128.0f);
-                chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_3V3_FAST_RUN / 128.0f));    
+        }
+        else if(referee_.game_status_.game_type == GameType::RMUC)
+        {
+            if (referee_.status_.level <= 6) {
+                if (mcu_comm_data_local.Switch.fast_run == 1) {
+                    chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_7V7_FAST_RUN / 128.0f);
+                    chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_7V7_FAST_RUN / 128.0f);
+                    chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_7V7_FAST_RUN / 128.0f));    
+                } else {
+                    chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_7V7 / 128.0f);
+                    chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_7V7 / 128.0f);
+                    chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_7V7 / 128.0f));
+                }
             } else {
-                chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_3V3 / 128.0f);
-                chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_3V3 / 128.0f);
-                chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_3V3 / 128.0f));
+                if (mcu_comm_data_local.Switch.fast_run == 1) {
+                    chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_7V7_FAST_RUN_HIGH / 128.0f);
+                    chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_7V7_FAST_RUN_HIGH / 128.0f);
+                    chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_7V7_FAST_RUN_HIGH / 128.0f));    
+                } else {
+                    chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_7V7_HIGH / 128.0f);
+                    chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_7V7_HIGH / 128.0f);
+                    chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_7V7_HIGH / 128.0f));
+                }
+            }
+        }
+        else {
+            if (mcu_comm_data_local.Switch.fast_run == 1) {
+                chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_7V7_FAST_RUN / 128.0f);
+                chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_7V7_FAST_RUN / 128.0f);
+                chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_7V7_FAST_RUN / 128.0f));    
+            } else {
+                chassis_.SetTargetVxInGimbal((mcu_comm_data_local.chassis_speed_x - 127.0f) * CHASSIS_SPEED_7V7 / 128.0f);
+                chassis_.SetTargetVyInGimbal((127.0f - mcu_comm_data_local.chassis_speed_y ) * CHASSIS_SPEED_7V7 / 128.0f);
+                chassis_.SetTargetVelocityRotation(((127.0f - mcu_comm_data_local.chassis_rotation ) * CHASSIS_SPIN_SPEED_7V7 / 128.0f));
             }
         }
 
@@ -265,23 +290,59 @@ void Robot::Task()
 
                         gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3);
                     }
-                } else {
-                    if (mcu_comm_data_local.Switch.fast_run == 1) {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3_FAST_RUN) {
-                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
-                        } else if (spin_speed > CHASSIS_SPIN_SPEED_3V3_FAST_RUN) {
-                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
-                        }
+                } else if (referee_.game_status_.game_type == GameType::RMUC) {
+                    if (referee_.status_.level <= 6) {
+                        if (mcu_comm_data_local.Switch.fast_run == 1) {
+                            if (spin_speed < CHASSIS_SPIN_SPEED_7V7_FAST_RUN) {
+                                spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_7V7_FAST_RUN);
+                            } else if (spin_speed > CHASSIS_SPIN_SPEED_7V7_FAST_RUN) {
+                                spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_7V7_FAST_RUN);
+                            }
 
-                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3_FAST_RUN);
+                            gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_7V7_FAST_RUN);
+                        } else {
+                            if (spin_speed < CHASSIS_SPIN_SPEED_7V7) {
+                                spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_7V7);
+                            } else if (spin_speed > CHASSIS_SPIN_SPEED_7V7) {
+                                spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_7V7);
+                            }
+
+                            gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_7V7);
+                        }
                     } else {
-                        if (spin_speed < CHASSIS_SPIN_SPEED_3V3) {
-                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_3V3);
-                        } else if (spin_speed > CHASSIS_SPIN_SPEED_3V3) {
-                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_3V3);
+                        if (mcu_comm_data_local.Switch.fast_run == 1) {
+                            if (spin_speed < CHASSIS_SPIN_SPEED_7V7_FAST_RUN_HIGH) {
+                                spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_7V7_FAST_RUN_HIGH);
+                            } else if (spin_speed > CHASSIS_SPIN_SPEED_7V7_FAST_RUN_HIGH) {
+                                spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_7V7_FAST_RUN_HIGH);
+                            }
+
+                            gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_7V7_FAST_RUN_HIGH);
+                        } else {
+                            if (spin_speed < CHASSIS_SPIN_SPEED_7V7_HIGH) {
+                                spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_7V7_HIGH);
+                            } else if (spin_speed > CHASSIS_SPIN_SPEED_7V7_HIGH) {
+                                spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_7V7_HIGH);
+                            }
+                        }
+                    }
+                }else {
+                    if (mcu_comm_data_local.Switch.fast_run == 1) {
+                        if (spin_speed < CHASSIS_SPIN_SPEED_7V7_FAST_RUN) {
+                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_7V7_FAST_RUN);
+                        } else if (spin_speed > CHASSIS_SPIN_SPEED_7V7_FAST_RUN) {
+                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_7V7_FAST_RUN);
                         }
 
-                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_3V3);
+                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_7V7_FAST_RUN);
+                    } else {
+                        if (spin_speed < CHASSIS_SPIN_SPEED_7V7) {
+                            spin_speed = fminf(spin_speed + accel, CHASSIS_SPIN_SPEED_7V7);
+                        } else if (spin_speed > CHASSIS_SPIN_SPEED_7V7) {
+                            spin_speed = fmaxf(spin_speed - accel, CHASSIS_SPIN_SPEED_7V7);
+                        }
+
+                        gimbal_.SetYawOmegaFeedforword(YAW_FEEDFORWORD_RATIO * CHASSIS_SPIN_SPEED_7V7);
                     }
                 }
             
